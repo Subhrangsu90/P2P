@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+
+# Compiled native binaries (auto-compiled from InputDriver.cs)
+*.exe
+
+# Environment & Logs
+*.log
+.env
+.env.local
+
+# OS Metadata
+.DS_Store
+Thumbs.db

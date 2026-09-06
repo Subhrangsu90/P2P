@@ -1,0 +1,13 @@
+{
+  "name": "signaling-server",
+  "version": "1.0.0",
+  "description": "Minimal WebRTC signaling server for phone/PC pairing",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "helper": "node pc-helper.js"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
+}
