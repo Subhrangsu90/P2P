@@ -571,6 +571,13 @@ function handleControlMessage(msg) {
       break;
     }
 
+    case 'screen-frame': {
+      if (window.handleIncomingScreenFrame) {
+        window.handleIncomingScreenFrame(msg.frame);
+      }
+      break;
+    }
+
     default: {
       // Pass through to remote control handler (mouse, click, key, media, screen-click, clipboard)
       if (window.handleIncomingControlCommand) {

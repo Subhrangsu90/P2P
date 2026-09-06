@@ -76,7 +76,17 @@ window.sendHelperMessage = sendHelperMessage;
 // ------------------------------------------
 // Remote Control Execution (Host PC side)
 // ------------------------------------------
+let lastHelperWarningTime = 0;
+
 function handleIncomingControlCommand(cmd) {
+  // Screen frame receiver (do not treat as input command)
+  if (cmd.type === 'screen-frame') {
+    if (window.handleIncomingScreenFrame) {
+      window.handleIncomingScreenFrame(cmd.frame);
+    }
+    return;
+  }
+
   if (cmd.type === 'clipboard-sync') {
     if (window.handleIncomingClipboard) {
       window.handleIncomingClipboard(cmd.text);
@@ -96,7 +106,14 @@ function handleIncomingControlCommand(cmd) {
   if (helperWs && helperWs.readyState === WebSocket.OPEN) {
     helperWs.send(JSON.stringify(cmd));
   } else {
-    window.showToast(`Input received (${cmd.type}), but PC Helper is inactive`, 'control');
+    // Only alert for action triggers (clicks, keys), never high-frequency moves or frames
+    if (cmd.type !== 'mouse-move') {
+      const now = Date.now();
+      if (now - lastHelperWarningTime > 6000) {
+        lastHelperWarningTime = now;
+        window.showToast('PC Agent inactive on Windows host. Run "npm run helper" on PC to execute native mouse clicks.', 'info');
+      }
+    }
   }
 }
 
