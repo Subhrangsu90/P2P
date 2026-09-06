@@ -57,6 +57,13 @@ window.sendHelperMessage = sendHelperMessage;
 // Remote Control Execution (Host PC side)
 // ------------------------------------------
 function handleIncomingControlCommand(cmd) {
+  if (cmd.type === 'clipboard-sync') {
+    if (window.handleIncomingClipboard) {
+      window.handleIncomingClipboard(cmd.text);
+    }
+    return;
+  }
+
   if (!window.appState.localPermissions.remoteControl) {
     window.sendControlMessage({
       type: 'alert',
@@ -301,9 +308,106 @@ function initScreenShare() {
   });
 }
 
+// ------------------------------------------
+// Direct Touch-on-Screen Click Mapping
+// ------------------------------------------
+function createTouchRipple(clientX, clientY) {
+  const ripple = document.createElement('div');
+  ripple.className = 'touch-ripple';
+  ripple.style.left = `${clientX}px`;
+  ripple.style.top = `${clientY}px`;
+  document.body.appendChild(ripple);
+  setTimeout(() => ripple.remove(), 420);
+}
+
+function initDirectTouch() {
+  const touchBtn = document.getElementById('touchScreenBtn');
+  const remoteVideo = document.getElementById('remoteVideo');
+  let directTouchActive = false;
+
+  touchBtn?.addEventListener('click', () => {
+    directTouchActive = !directTouchActive;
+    if (directTouchActive) {
+      touchBtn.classList.remove('btn-secondary');
+      touchBtn.classList.add('btn-primary');
+      if (remoteVideo) remoteVideo.style.cursor = 'crosshair';
+      window.showToast('Direct Touch enabled: tap stream to click remote PC', 'success');
+    } else {
+      touchBtn.classList.remove('btn-primary');
+      touchBtn.classList.add('btn-secondary');
+      if (remoteVideo) remoteVideo.style.cursor = 'default';
+      window.showToast('Direct Touch disabled', 'info');
+    }
+  });
+
+  function triggerScreenClick(clientX, clientY, button = 'left') {
+    if (!directTouchActive || !remoteVideo) return;
+    const rect = remoteVideo.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+
+    const normX = (clientX - rect.left) / rect.width;
+    const normY = (clientY - rect.top) / rect.height;
+
+    if (normX >= 0 && normX <= 1 && normY >= 0 && normY <= 1) {
+      window.sendControlMessage({
+        type: 'screen-click',
+        normX,
+        normY,
+        button
+      });
+      createTouchRipple(clientX, clientY);
+    }
+  }
+
+  remoteVideo?.addEventListener('click', (e) => {
+    if (directTouchActive) {
+      triggerScreenClick(e.clientX, e.clientY, 'left');
+    }
+  });
+
+  remoteVideo?.addEventListener('contextmenu', (e) => {
+    if (directTouchActive) {
+      e.preventDefault();
+      triggerScreenClick(e.clientX, e.clientY, 'right');
+    }
+  });
+
+  remoteVideo?.addEventListener('touchstart', (e) => {
+    if (directTouchActive && e.touches.length === 1) {
+      triggerScreenClick(e.touches[0].clientX, e.touches[0].clientY, 'left');
+    }
+  }, { passive: true });
+}
+
+// ------------------------------------------
+// Media Deck & Presentation Clicker
+// ------------------------------------------
+function initMediaAndPresentationControls() {
+  document.querySelectorAll('.media-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const action = btn.getAttribute('data-action');
+      if (!action) return;
+      window.sendControlMessage({ type: 'media-key', key: action });
+      window.showToast(`Media: ${action}`, 'control');
+    });
+  });
+
+  document.querySelectorAll('.slide-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const action = btn.getAttribute('data-action');
+      if (!action) return;
+      window.sendControlMessage({ type: 'media-key', key: action });
+      window.showToast(`Slide: ${action}`, 'control');
+    });
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   connectLocalHelper();
   initTouchpad();
   initControls();
   initScreenShare();
+  initDirectTouch();
+  initMediaAndPresentationControls();
 });
+

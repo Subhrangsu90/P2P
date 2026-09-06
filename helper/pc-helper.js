@@ -93,11 +93,25 @@ function getUniqueFilePath(dir, fileName) {
   return path.join(dir, `${base} (${counter})${ext}`);
 }
 
+// Screen resolution cache
+let screenResolution = { width: 1920, height: 1080 };
+if (process.platform === 'win32') {
+  try {
+    const res = execSync('powershell -NoProfile -Command "[System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width; [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height"', { encoding: 'utf8' });
+    const lines = res.trim().split(/\r?\n/).map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+    if (lines.length >= 2) {
+      screenResolution.width = lines[0];
+      screenResolution.height = lines[1];
+    }
+  } catch (e) {}
+}
+
 // WebSocket server for PC Helper (loopback only)
 const wss = new WebSocket.Server({ port: HELPER_PORT, host: '127.0.0.1' });
 
 console.log('====================================================');
 console.log(`🖥️  RemoteLink PC Helper active on ws://127.0.0.1:${HELPER_PORT}`);
+console.log(`Display Resolution: ${screenResolution.width}x${screenResolution.height}`);
 console.log('Ready for native remote control & File Explorer commands.');
 console.log('====================================================');
 
@@ -110,6 +124,7 @@ wss.on('connection', (ws) => {
     status: 'active',
     platform: process.platform,
     driverReady: !!driverProcess,
+    screenResolution: screenResolution,
     downloadsPath: path.join(os.homedir(), 'Downloads')
   }));
 
@@ -127,6 +142,17 @@ wss.on('connection', (ws) => {
         break;
       }
 
+      // Direct Screen Click from normalized coordinates (0.0 to 1.0)
+      case 'screen-click': {
+        if (typeof msg.normX === 'number' && typeof msg.normY === 'number') {
+          const x = Math.round(msg.normX * screenResolution.width);
+          const y = Math.round(msg.normY * screenResolution.height);
+          sendDriverCommand(`A ${x} ${y}`);
+          sendDriverCommand(`C ${msg.button || 'left'}`);
+        }
+        break;
+      }
+
       // Mouse movements
       case 'mouse-move': {
         if (typeof msg.dx === 'number' && typeof msg.dy === 'number') {
@@ -140,6 +166,47 @@ wss.on('connection', (ws) => {
       // Mouse clicks
       case 'mouse-click': {
         sendDriverCommand(`C ${msg.button || 'left'}`);
+        break;
+      }
+
+      // Media Deck & Presentation Keys
+      case 'media-key': {
+        if (process.platform === 'win32') {
+          const key = msg.key;
+          const vbsMap = {
+            'VolumeUp': 175,
+            'VolumeDown': 174,
+            'VolumeMute': 173,
+            'MediaPlayPause': 179,
+            'MediaNext': 176,
+            'MediaPrev': 177,
+            'MediaStop': 178
+          };
+          if (vbsMap[key]) {
+            exec(`powershell -NoProfile -Command "(New-Object -ComObject WScript.Shell).SendKeys([char]${vbsMap[key]})"`);
+          } else if (key === 'NextSlide') {
+            sendDriverCommand('K {PGDN}');
+          } else if (key === 'PrevSlide') {
+            sendDriverCommand('K {PGUP}');
+          } else if (key === 'SlideShow') {
+            sendDriverCommand('K {F5}');
+          } else if (key === 'BlankSlide') {
+            sendDriverCommand('K b');
+          }
+        }
+        break;
+      }
+
+      // Universal Real-Time Clipboard Write
+      case 'clipboard-write': {
+        if (process.platform === 'win32' && typeof msg.text === 'string') {
+          const sanitized = msg.text.replace(/'/g, "''");
+          exec(`powershell -NoProfile -Command "Set-Clipboard -Value '${sanitized}'"`, (err) => {
+            if (!err) {
+              ws.send(JSON.stringify({ type: 'clipboard-updated', text: msg.text }));
+            }
+          });
+        }
         break;
       }
 

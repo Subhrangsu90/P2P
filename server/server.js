@@ -42,8 +42,6 @@ const MIME_TYPES = {
   '.ttf': 'font/ttf'
 };
 
-// In-memory room table: { roomCode: [ws1, ws2] }
-const rooms = new Map();
 
 function getLocalIpAddresses() {
   const interfaces = os.networkInterfaces();
@@ -161,12 +159,17 @@ const server = http.createServer((req, res) => {
 // ------------------------------------------
 const wss = new WebSocket.Server({ server });
 
+// In-memory room table: { roomCode: { host: ws, viewers: [ws], pin: string|null, requireApproval: boolean } }
+const rooms = new Map();
+
 function generateRoomCode() {
   return crypto.randomBytes(3).toString('hex'); // e.g. "a1b2c3"
 }
 
 wss.on('connection', (ws) => {
+  ws.peerId = crypto.randomBytes(4).toString('hex');
   ws.roomCode = null;
+  ws.isHost = false;
 
   ws.on('message', (raw) => {
     let msg;
@@ -177,38 +180,137 @@ wss.on('connection', (ws) => {
     }
 
     switch (msg.type) {
-      // Device creates a new room
+      // Device creates a new room (becomes host)
       case 'create-room': {
         const code = generateRoomCode();
-        rooms.set(code, [ws]);
+        const roomData = {
+          host: ws,
+          viewers: [],
+          pin: msg.pin ? String(msg.pin).trim() : null,
+          requireApproval: msg.requireApproval !== false
+        };
+        rooms.set(code, roomData);
         ws.roomCode = code;
-        ws.send(JSON.stringify({ type: 'room-created', code }));
+        ws.isHost = true;
+        ws.send(JSON.stringify({
+          type: 'room-created',
+          code,
+          peerId: ws.peerId,
+          pin: roomData.pin,
+          requireApproval: roomData.requireApproval
+        }));
         break;
       }
 
-      // Device joins room using code
+      // Viewer requests to join room
       case 'join-room': {
-        const peers = rooms.get(msg.code);
-        if (!peers) {
-          return ws.send(JSON.stringify({ type: 'error', message: 'Room not found. Check code.' }));
+        const room = rooms.get(msg.code);
+        if (!room || !room.host || room.host.readyState !== WebSocket.OPEN) {
+          return ws.send(JSON.stringify({ type: 'error', message: 'Room not found or host is offline.' }));
         }
-        if (peers.length >= 2) {
-          return ws.send(JSON.stringify({ type: 'error', message: 'Room is full (maximum 2 devices).' }));
-        }
-        peers.push(ws);
-        ws.roomCode = msg.code;
 
-        // Notify both peers of pairing
-        peers.forEach((peer) => peer.send(JSON.stringify({ type: 'paired', code: msg.code })));
+        // Check PIN if room has PIN configured
+        if (room.pin && (!msg.pin || String(msg.pin).trim() !== room.pin)) {
+          return ws.send(JSON.stringify({ type: 'error', message: 'Invalid 4-digit room PIN.' }));
+        }
+
+        // Limit maximum concurrent viewers (up to 5 viewers + 1 host = 6 devices)
+        if (room.viewers.length >= 5) {
+          return ws.send(JSON.stringify({ type: 'error', message: 'Room is full (maximum 5 viewers).' }));
+        }
+
+        ws.roomCode = msg.code;
+        ws.isHost = false;
+
+        // If host requires manual authorization prompt
+        if (room.requireApproval) {
+          ws.send(JSON.stringify({ type: 'waiting-auth', message: 'Waiting for host approval...' }));
+          room.host.send(JSON.stringify({
+            type: 'auth-request',
+            peerId: ws.peerId,
+            code: msg.code,
+            deviceInfo: msg.deviceInfo || 'Remote Device'
+          }));
+        } else {
+          // Instant join
+          room.viewers.push(ws);
+          ws.send(JSON.stringify({ type: 'paired', code: msg.code, peerId: ws.peerId, isHost: false }));
+          room.host.send(JSON.stringify({ type: 'peer-joined', code: msg.code, peerId: ws.peerId }));
+        }
+        break;
+      }
+
+      // Host approves or declines an incoming connection request
+      case 'auth-response': {
+        if (!ws.isHost || !ws.roomCode) return;
+        const room = rooms.get(ws.roomCode);
+        if (!room) return;
+
+        // Find the requesting client WebSocket
+        let requestingWs = null;
+        for (const client of wss.clients) {
+          if (client.peerId === msg.peerId && client.roomCode === ws.roomCode) {
+            requestingWs = client;
+            break;
+          }
+        }
+
+        if (!requestingWs) return;
+
+        if (msg.approved) {
+          if (!room.viewers.includes(requestingWs)) {
+            room.viewers.push(requestingWs);
+          }
+          requestingWs.send(JSON.stringify({
+            type: 'paired',
+            code: ws.roomCode,
+            peerId: requestingWs.peerId,
+            isHost: false
+          }));
+          ws.send(JSON.stringify({
+            type: 'peer-joined',
+            code: ws.roomCode,
+            peerId: requestingWs.peerId
+          }));
+        } else {
+          requestingWs.send(JSON.stringify({
+            type: 'auth-declined',
+            message: 'Host declined your connection request.'
+          }));
+        }
         break;
       }
 
       // Relay WebRTC handshake (offer, answer, ICE candidates)
       case 'signal': {
-        const peers = rooms.get(ws.roomCode) || [];
-        peers
-          .filter((peer) => peer !== ws && peer.readyState === WebSocket.OPEN)
-          .forEach((peer) => peer.send(JSON.stringify({ type: 'signal', data: msg.data })));
+        const room = rooms.get(ws.roomCode);
+        if (!room) return;
+
+        // If a specific targetPeerId is provided, route directly to that peer
+        if (msg.targetPeerId) {
+          for (const client of wss.clients) {
+            if (client.peerId === msg.targetPeerId && client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify({
+                type: 'signal',
+                senderPeerId: ws.peerId,
+                data: msg.data
+              }));
+              break;
+            }
+          }
+        } else {
+          // Otherwise broadcast to other members in the room
+          const targets = ws.isHost ? room.viewers : [room.host];
+          targets.forEach((target) => {
+            if (target && target !== ws && target.readyState === WebSocket.OPEN) {
+              target.send(JSON.stringify({
+                type: 'signal',
+                senderPeerId: ws.peerId,
+                data: msg.data
+              }));
+            }
+          });
+        }
         break;
       }
 
@@ -219,12 +321,21 @@ wss.on('connection', (ws) => {
 
   ws.on('close', () => {
     if (ws.roomCode && rooms.has(ws.roomCode)) {
-      const peers = rooms.get(ws.roomCode).filter((peer) => peer !== ws);
-      if (peers.length === 0) {
+      const room = rooms.get(ws.roomCode);
+      if (ws.isHost) {
+        // Host disconnected: notify all viewers and remove room
+        room.viewers.forEach((viewer) => {
+          if (viewer.readyState === WebSocket.OPEN) {
+            viewer.send(JSON.stringify({ type: 'host-disconnected' }));
+          }
+        });
         rooms.delete(ws.roomCode);
       } else {
-        rooms.set(ws.roomCode, peers);
-        peers.forEach((peer) => peer.send(JSON.stringify({ type: 'peer-disconnected' })));
+        // Viewer disconnected: remove from viewers and notify host
+        room.viewers = room.viewers.filter((v) => v !== ws);
+        if (room.host && room.host.readyState === WebSocket.OPEN) {
+          room.host.send(JSON.stringify({ type: 'peer-disconnected', peerId: ws.peerId, viewerCount: room.viewers.length }));
+        }
       }
     }
   });

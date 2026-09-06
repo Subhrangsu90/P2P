@@ -98,30 +98,30 @@ function updateStatusBadges() {
   if (badgeSignaling) {
     if (window.appState.signalingConnected) {
       badgeSignaling.className = 'status-badge connected';
-      badgeSignaling.innerHTML = '<span class="status-dot"></span> <span class="badge-text">Server: Online</span>';
+      badgeSignaling.innerHTML = '<span class="status-dot"></span> <span class="badge-text">Network: Online</span>';
     } else {
       badgeSignaling.className = 'status-badge disconnected';
-      badgeSignaling.innerHTML = '<span class="status-dot"></span> <span class="badge-text">Server: Offline</span>';
+      badgeSignaling.innerHTML = '<span class="status-dot"></span> <span class="badge-text">Network: Offline</span>';
     }
   }
 
   if (badgeP2P) {
     if (window.appState.peerConnected) {
       badgeP2P.className = 'status-badge connected';
-      badgeP2P.innerHTML = '<span class="status-dot"></span> <span class="badge-text">P2P: Connected</span>';
+      badgeP2P.innerHTML = '<span class="status-dot"></span> <span class="badge-text">Device: Connected</span>';
     } else {
       badgeP2P.className = 'status-badge disconnected';
-      badgeP2P.innerHTML = '<span class="status-dot"></span> <span class="badge-text">P2P: Waiting</span>';
+      badgeP2P.innerHTML = '<span class="status-dot"></span> <span class="badge-text">Device: Waiting</span>';
     }
   }
 
   if (badgeHelper) {
     if (window.appState.helperConnected) {
       badgeHelper.className = 'status-badge connected';
-      badgeHelper.innerHTML = '<span class="status-dot"></span> <span class="badge-text">Helper: Ready</span>';
+      badgeHelper.innerHTML = '<span class="status-dot"></span> <span class="badge-text">PC Agent: Ready</span>';
     } else {
       badgeHelper.className = 'status-badge';
-      badgeHelper.innerHTML = '<span class="status-dot"></span> <span class="badge-text">Helper: Inactive</span>';
+      badgeHelper.innerHTML = '<span class="status-dot"></span> <span class="badge-text">PC Agent: Inactive</span>';
     }
   }
 }
@@ -161,6 +161,199 @@ qrCloseBtn?.addEventListener('click', () => {
   qrModal?.classList.remove('active');
 });
 
+// ------------------------------------------
+// Universal Real-Time Clipboard Sync
+// ------------------------------------------
+function appendClipboardHistoryItem(text, direction = 'sent') {
+  const historyList = document.getElementById('clipboardHistory');
+  if (!historyList) return;
+
+  const emptyText = historyList.querySelector('.clipboard-empty-text');
+  if (emptyText) emptyText.remove();
+
+  const item = document.createElement('div');
+  item.className = 'clipboard-item';
+
+  const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const isSent = direction === 'sent';
+  const badgeClass = isSent ? 'chip-sent' : 'chip-received';
+  const badgeText = isSent ? 'Sent' : 'Received';
+
+  item.innerHTML = `
+    <div class="clipboard-meta">
+      <span class="clipboard-badge ${badgeClass}">${badgeText}</span>
+      <span class="clipboard-time">${timeStr}</span>
+    </div>
+    <div class="clipboard-text">${escapeHtml(text)}</div>
+    <button class="btn-icon btn-sm clipboard-copy-btn" title="Copy to clipboard">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+      </svg>
+    </button>
+  `;
+
+  item.querySelector('.clipboard-copy-btn')?.addEventListener('click', () => {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('Copied to local clipboard!', 'success');
+    });
+  });
+
+  historyList.prepend(item);
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function initClipboardSync() {
+  const sendBtn = document.getElementById('sendClipboardBtn');
+  const manualBtn = document.getElementById('sendManualClipboardBtn');
+  const input = document.getElementById('clipboardInput');
+
+  // Push Device Clipboard
+  sendBtn?.addEventListener('click', async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text || text.trim() === '') {
+        return showToast('Your system clipboard is empty.', 'warning');
+      }
+      window.sendControlMessage({ type: 'clipboard-sync', text });
+      appendClipboardHistoryItem(text, 'sent');
+      showToast('Pushed clipboard to remote peer!', 'success');
+    } catch (err) {
+      showToast('Please allow clipboard permission to read.', 'warning');
+    }
+  });
+
+  // Manual Text Push
+  function sendManual() {
+    const text = input?.value.trim();
+    if (!text) return;
+    window.sendControlMessage({ type: 'clipboard-sync', text });
+    appendClipboardHistoryItem(text, 'sent');
+    input.value = '';
+    showToast('Clipboard synced to remote peer!', 'success');
+  }
+
+  manualBtn?.addEventListener('click', sendManual);
+  input?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') sendManual();
+  });
+}
+
+function handleIncomingClipboard(text) {
+  if (!text) return;
+  appendClipboardHistoryItem(text, 'received');
+
+  // Try writing to browser clipboard if focused
+  if (navigator.clipboard && document.hasFocus && document.hasFocus()) {
+    navigator.clipboard.writeText(text).catch(() => {});
+  }
+
+  // Forward to local PC helper so Windows system clipboard is directly updated
+  if (window.sendHelperMessage) {
+    window.sendHelperMessage({ type: 'clipboard-write', text });
+  }
+
+  showToast('Clipboard received from peer & copied!', 'success');
+}
+
+window.handleIncomingClipboard = handleIncomingClipboard;
+
+// ------------------------------------------
+// Diagnostics HUD Toggle
+// ------------------------------------------
+function initDiagnosticsHUDToggle() {
+  const btn = document.getElementById('btnToggleHud');
+  const hud = document.getElementById('diagnosticsHud');
+  if (!btn || !hud) return;
+
+  btn.addEventListener('click', () => {
+    const isVisible = hud.style.display !== 'none';
+    hud.style.display = isVisible ? 'none' : 'grid';
+    btn.classList.toggle('active', !isVisible);
+  });
+}
+
+// ------------------------------------------
+// PWA Mobile Install Prompt
+// ------------------------------------------
+let deferredInstallPrompt = null;
+
+function initPwaInstall() {
+  const installBtn = document.getElementById('btnPwaInstall');
+  if (!installBtn) return;
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    installBtn.style.display = 'inline-flex';
+  });
+
+  installBtn.addEventListener('click', async () => {
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      const { outcome } = await deferredInstallPrompt.userChoice;
+      if (outcome === 'accepted') {
+        showToast('RemoteLink installed successfully!', 'success');
+      }
+      deferredInstallPrompt = null;
+      installBtn.style.display = 'none';
+    }
+  });
+
+  window.addEventListener('appinstalled', () => {
+    installBtn.style.display = 'none';
+    showToast('RemoteLink app installed.', 'success');
+  });
+}
+
+// ------------------------------------------
+// Host Authorization Modal Workflow
+// ------------------------------------------
+let pendingAuthPeerId = null;
+
+function showAuthModal(peerId, deviceInfo) {
+  pendingAuthPeerId = peerId;
+  const modal = document.getElementById('authModal');
+  const deviceEl = document.getElementById('authPeerDevice');
+  if (deviceEl) {
+    deviceEl.textContent = deviceInfo || 'Remote Device';
+  }
+  modal?.classList.add('active');
+}
+
+function initAuthModal() {
+  const modal = document.getElementById('authModal');
+  const btnAuthorize = document.getElementById('btnAuthorizePeer');
+  const btnDecline = document.getElementById('btnDeclinePeer');
+
+  btnAuthorize?.addEventListener('click', () => {
+    if (pendingAuthPeerId && window.sendAuthResponse) {
+      window.sendAuthResponse(pendingAuthPeerId, true);
+      showToast('Authorized connection for peer.', 'success');
+    }
+    modal?.classList.remove('active');
+    pendingAuthPeerId = null;
+  });
+
+  btnDecline?.addEventListener('click', () => {
+    if (pendingAuthPeerId && window.sendAuthResponse) {
+      window.sendAuthResponse(pendingAuthPeerId, false);
+      showToast('Declined connection request.', 'warning');
+    }
+    modal?.classList.remove('active');
+    pendingAuthPeerId = null;
+  });
+}
+
+window.showAuthModal = showAuthModal;
+
 // Privacy Toggles Coordinator
 function initPrivacyToggles() {
   const toggleScreen = document.getElementById('toggleScreen');
@@ -199,9 +392,14 @@ function checkUrlRoomParam() {
 document.addEventListener('DOMContentLoaded', () => {
   initTabs();
   initPrivacyToggles();
+  initClipboardSync();
+  initDiagnosticsHUDToggle();
+  initPwaInstall();
+  initAuthModal();
   updateStatusBadges();
   checkUrlRoomParam();
 });
 
 window.updateStatusBadges = updateStatusBadges;
 window.setRoomCode = setRoomCode;
+

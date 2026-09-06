@@ -1,0 +1,18 @@
+{
+  "name": "RemoteLink — Wireless Remote & File Transfer",
+  "short_name": "RemoteLink",
+  "description": "Control your PC from your phone, stream your screen, and transfer files instantly with direct device-to-device connection.",
+  "start_url": "/?pwa=1",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f8f9fb",
+  "theme_color": "#18181b",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -12,12 +12,16 @@
   --bg-input: #ffffff;
   --bg-subtle: #f4f4f6;
   --bg-subtle-hover: #eaeaee;
-  
+
   /* Primary Accent: Rich Obsidian Graphite & Crisp Platinum */
-  --primary: #18181b;             /* Zinc-900 / Deep Graphite */
-  --primary-hover: #27272a;       /* Zinc-800 */
-  --primary-active: #09090b;      /* Zinc-950 */
-  --primary-fg: #ffffff;          /* Crisp White Text */
+  --primary: #18181b;
+  /* Zinc-900 / Deep Graphite */
+  --primary-hover: #27272a;
+  /* Zinc-800 */
+  --primary-active: #09090b;
+  /* Zinc-950 */
+  --primary-fg: #ffffff;
+  /* Crisp White Text */
   --primary-border: #27272a;
   --primary-glow: rgba(24, 24, 27, 0.12);
   --primary-subtle: #f4f4f5;
@@ -62,10 +66,14 @@
   --text-subtle: #a1a1aa;
 
   /* Subtle Premium Border Radii (Modern Linear / Vercel aesthetic) */
-  --radius-xl: 12px;  /* Outer cards, header, modals */
-  --radius-lg: 10px;  /* Nav bar, pairing boxes, touchpad, dropzone */
-  --radius-md: 7px;   /* Buttons, inputs, tab items, file cards, click bar */
-  --radius-sm: 5px;   /* Small icons, hotkey keys, sub-badges */
+  --radius-xl: 12px;
+  /* Outer cards, header, modals */
+  --radius-lg: 10px;
+  /* Nav bar, pairing boxes, touchpad, dropzone */
+  --radius-md: 7px;
+  /* Buttons, inputs, tab items, file cards, click bar */
+  --radius-sm: 5px;
+  /* Small icons, hotkey keys, sub-badges */
 
   /* Elevation Shadows */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
@@ -114,7 +122,10 @@ body {
 /* ------------------------------------------
    SVG Icon System Utilities
    ------------------------------------------ */
-.svg-icon, .btn-svg, .tab-svg, .title-svg {
+.svg-icon,
+.btn-svg,
+.tab-svg,
+.title-svg {
   display: inline-block;
   vertical-align: middle;
   flex-shrink: 0;
@@ -299,8 +310,15 @@ header {
 }
 
 @keyframes tabFadeIn {
-  from { opacity: 0; transform: translateY(3px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .card {
@@ -464,6 +482,7 @@ input[type="text"] {
   outline: none;
   transition: all 0.16s ease;
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+  width: 100%;
 }
 
 input[type="text"]:focus {
@@ -783,7 +802,8 @@ input[type="text"]:focus {
   gap: 10px;
 }
 
-.dropzone:hover, .dropzone.dragover {
+.dropzone:hover,
+.dropzone.dragover {
   border-color: var(--primary);
   background: var(--bg-subtle);
 }
@@ -1053,7 +1073,10 @@ input[type="text"]:focus {
 .slider {
   position: absolute;
   cursor: pointer;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background-color: var(--silver-300);
   border: 1px solid var(--border-card);
   transition: 0.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -1073,12 +1096,12 @@ input[type="text"]:focus {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
-input:checked + .slider {
+input:checked+.slider {
   background-color: var(--primary);
   border-color: var(--primary);
 }
 
-input:checked + .slider:before {
+input:checked+.slider:before {
   left: 23px;
 }
 
@@ -1087,7 +1110,10 @@ input:checked + .slider:before {
    ------------------------------------------ */
 .modal-overlay {
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: rgba(9, 9, 11, 0.45);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -1104,8 +1130,15 @@ input:checked + .slider:before {
 }
 
 @keyframes modalFadeIn {
-  from { opacity: 0; transform: scale(0.98); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .modal-card {
@@ -1260,8 +1293,15 @@ input:checked + .slider:before {
 }
 
 @keyframes toastSlideIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .toast-icon-wrap {
@@ -1302,7 +1342,8 @@ input:checked + .slider:before {
    Comprehensive Mobile & Tablet Responsive Engine
    ========================================================================== */
 
-html, body {
+html,
+body {
   width: 100%;
   max-width: 100vw;
   overflow-x: hidden;
@@ -1560,4 +1601,197 @@ html, body {
   .hotkeys-grid {
     grid-template-columns: 1fr 1fr;
   }
+}
+
+/* ==========================================================================
+   Advanced Feature Components: HUD, Decks, Touch, Clipboard & Auth Modal
+   ========================================================================== */
+
+/* Live Diagnostics HUD */
+.diagnostics-hud {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  padding: 10px 16px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow-sm);
+  animation: hudSlideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes hudSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hud-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hud-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.hud-val {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-main);
+  font-family: var(--font-sans);
+}
+
+/* Media & Presentation Decks */
+.media-deck-grid,
+.slide-deck-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+}
+
+.media-deck-grid .btn,
+.slide-deck-grid .btn {
+  padding: 9px 12px;
+  font-size: 0.8rem;
+}
+
+/* Direct Touch Ripple Feedback */
+.touch-ripple {
+  position: fixed;
+  width: 28px;
+  height: 28px;
+  margin-left: -14px;
+  margin-top: -14px;
+  border-radius: 50%;
+  background: rgba(24, 24, 27, 0.2);
+  border: 2px solid var(--primary);
+  pointer-events: none;
+  z-index: 9999;
+  animation: touchRippleAnim 0.42s ease-out forwards;
+}
+
+@keyframes touchRippleAnim {
+  0% {
+    transform: scale(0.4);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+/* Universal Clipboard Sync */
+.clipboard-history {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  max-height: 200px;
+  overflow-y: auto;
+  margin-top: 10px;
+  padding-right: 4px;
+}
+
+.clipboard-empty-text {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  text-align: center;
+  padding: 16px 8px;
+}
+
+.clipboard-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.clipboard-item:hover {
+  background: var(--bg-surface);
+  border-color: var(--border-card);
+}
+
+.clipboard-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.clipboard-badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.chip-sent {
+  background: var(--silver-200);
+  color: var(--silver-800);
+  border: 1px solid var(--silver-300);
+}
+
+.chip-received {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.clipboard-time {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+.clipboard-text {
+  flex: 1;
+  font-size: 0.82rem;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: monospace;
+}
+
+.clipboard-copy-btn {
+  flex-shrink: 0;
+}
+
+/* Authorization Modal Specifics */
+.auth-icon-badge {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-lg);
+  background: var(--silver-200);
+  border: 1px solid var(--silver-300);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 4px auto;
+  color: var(--primary);
+}
+
+.auth-actions-row {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  margin-top: 10px;
 }

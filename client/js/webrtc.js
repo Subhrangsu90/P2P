@@ -77,19 +77,43 @@ function connectSignaling() {
       case 'room-created': {
         window.appState.isHost = true;
         window.setRoomCode(msg.code);
-        window.showToast(`Room created: ${msg.code}`, 'success');
+        window.showToast(`Session created: ${msg.code}`, 'success');
         break;
       }
 
       case 'paired': {
         window.setRoomCode(msg.code);
-        window.showToast('Peer joined room! Initiating P2P connection...', 'success');
+        window.showToast('Connected! Initializing secure link...', 'success');
+        setupPeerConnection();
+        break;
+      }
+
+      case 'peer-joined': {
+        window.setRoomCode(msg.code);
+        window.showToast('New device joined session! Linking...', 'success');
         setupPeerConnection();
 
         if (window.appState.isHost) {
           createAndSendDataChannel();
           await sendOffer();
         }
+        break;
+      }
+
+      case 'auth-request': {
+        if (window.showAuthModal) {
+          window.showAuthModal(msg.peerId, msg.deviceInfo);
+        }
+        break;
+      }
+
+      case 'waiting-auth': {
+        window.showToast(msg.message || 'Waiting for permission to connect...', 'info');
+        break;
+      }
+
+      case 'auth-declined': {
+        window.showToast(msg.message || 'Connection was declined.', 'error');
         break;
       }
 
@@ -101,7 +125,15 @@ function connectSignaling() {
       case 'peer-disconnected': {
         window.appState.peerConnected = false;
         window.updateStatusBadges();
-        window.showToast('Peer disconnected from room.', 'warning');
+        window.showToast('Device disconnected.', 'warning');
+        cleanupPeerConnection();
+        break;
+      }
+
+      case 'host-disconnected': {
+        window.appState.peerConnected = false;
+        window.updateStatusBadges();
+        window.showToast('Host closed the session.', 'warning');
         cleanupPeerConnection();
         break;
       }
@@ -138,12 +170,14 @@ function setupPeerConnection() {
     if (pc.connectionState === 'connected') {
       window.appState.peerConnected = true;
       window.updateStatusBadges();
-      window.showToast('P2P Direct Connection Established!', 'success');
+      window.showToast('Direct Device Link Established!', 'success');
+      startTelemetryHUD();
     } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
       window.appState.peerConnected = false;
       window.updateStatusBadges();
+      stopTelemetryHUD();
       if (pc.connectionState === 'failed') {
-        window.showToast('P2P Connection failed. Attempting ICE restart...', 'warning');
+        window.showToast('Connection interrupted. Reconnecting...', 'warning');
         restartIce();
       }
     }
@@ -306,7 +340,118 @@ async function restartIce() {
   }
 }
 
+// ------------------------------------------
+// Live WebRTC Diagnostics & Telemetry HUD
+// ------------------------------------------
+let telemetryTimer = null;
+let lastBytesReceived = 0;
+let lastStatsTimestamp = 0;
+
+function startTelemetryHUD() {
+  if (telemetryTimer) clearInterval(telemetryTimer);
+
+  telemetryTimer = setInterval(async () => {
+    if (!pc || pc.connectionState !== 'connected') return;
+
+    try {
+      const stats = await pc.getStats();
+      let activeCandidatePair = null;
+      let inboundVideo = null;
+      const candidateMap = new Map();
+
+      stats.forEach((report) => {
+        if (report.type === 'candidate-pair' && (report.state === 'succeeded' || report.nominated)) {
+          activeCandidatePair = report;
+        } else if (report.type === 'inbound-rtp' && report.kind === 'video') {
+          inboundVideo = report;
+        } else if (report.type === 'local-candidate' || report.type === 'remote-candidate') {
+          candidateMap.set(report.id, report);
+        }
+      });
+
+      // RTT Ping
+      const pingEl = document.getElementById('hudPing');
+      if (pingEl && activeCandidatePair) {
+        const rtt = activeCandidatePair.currentRoundTripTime ?? activeCandidatePair.roundTripTime;
+        if (typeof rtt === 'number') {
+          const ms = Math.round(rtt * 1000);
+          pingEl.textContent = `${ms} ms`;
+          pingEl.style.color = ms < 60 ? '#10b981' : ms < 150 ? '#f59e0b' : '#ef4444';
+        }
+      }
+
+      // Topology (Direct P2P host / srflx vs TURN Relay)
+      const topEl = document.getElementById('hudTopology');
+      if (topEl && activeCandidatePair) {
+        const localCand = candidateMap.get(activeCandidatePair.localCandidateId);
+        const remoteCand = candidateMap.get(activeCandidatePair.remoteCandidateId);
+        if (localCand?.candidateType === 'relay' || remoteCand?.candidateType === 'relay') {
+          topEl.textContent = 'Cloud Relay';
+          topEl.style.color = '#f59e0b';
+        } else if (localCand?.candidateType === 'host' && remoteCand?.candidateType === 'host') {
+          topEl.textContent = 'Local Wi-Fi';
+          topEl.style.color = '#10b981';
+        } else {
+          topEl.textContent = 'Direct Link';
+          topEl.style.color = '#10b981';
+        }
+      }
+
+      // Resolution & FPS
+      const resEl = document.getElementById('hudRes');
+      const fpsEl = document.getElementById('hudFps');
+      const videoEl = document.getElementById('remoteVideo');
+
+      if (videoEl && videoEl.videoWidth > 0) {
+        if (resEl) resEl.textContent = `${videoEl.videoWidth} × ${videoEl.videoHeight}`;
+      } else if (inboundVideo?.frameWidth) {
+        if (resEl) resEl.textContent = `${inboundVideo.frameWidth} × ${inboundVideo.frameHeight}`;
+      }
+
+      if (fpsEl) {
+        if (inboundVideo?.framesPerSecond) {
+          fpsEl.textContent = `${Math.round(inboundVideo.framesPerSecond)} fps`;
+        } else {
+          fpsEl.textContent = videoEl && videoEl.videoWidth > 0 ? '30 fps' : '-- fps';
+        }
+      }
+
+      // Bitrate (Kbps)
+      const bitEl = document.getElementById('hudBitrate');
+      if (bitEl && inboundVideo && typeof inboundVideo.bytesReceived === 'number') {
+        const now = inboundVideo.timestamp || Date.now();
+        if (lastStatsTimestamp && now > lastStatsTimestamp) {
+          const deltaBytes = inboundVideo.bytesReceived - lastBytesReceived;
+          const deltaTime = (now - lastStatsTimestamp) / 1000;
+          const kbps = Math.round((deltaBytes * 8) / deltaTime / 1000);
+          bitEl.textContent = `${Math.max(0, kbps)} Kbps`;
+        }
+        lastBytesReceived = inboundVideo.bytesReceived;
+        lastStatsTimestamp = now;
+      }
+    } catch (e) {
+      console.warn('[Telemetry] Error collecting WebRTC stats:', e);
+    }
+  }, 1200);
+}
+
+function stopTelemetryHUD() {
+  if (telemetryTimer) {
+    clearInterval(telemetryTimer);
+    telemetryTimer = null;
+  }
+  const pingEl = document.getElementById('hudPing');
+  const resEl = document.getElementById('hudRes');
+  const fpsEl = document.getElementById('hudFps');
+  const bitEl = document.getElementById('hudBitrate');
+  if (pingEl) { pingEl.textContent = '-- ms'; pingEl.style.color = ''; }
+  if (resEl) resEl.textContent = '-- × --';
+  if (fpsEl) fpsEl.textContent = '-- fps';
+  if (bitEl) bitEl.textContent = '-- Kbps';
+}
+
 function cleanupPeerConnection() {
+  stopTelemetryHUD();
   if (dataChannel) {
     dataChannel.close();
     dataChannel = null;
@@ -359,7 +504,7 @@ function handleControlMessage(msg) {
     }
 
     default: {
-      // Pass through to remote control handler (mouse, click, key)
+      // Pass through to remote control handler (mouse, click, key, media, screen-click, clipboard)
       if (window.handleIncomingControlCommand) {
         window.handleIncomingControlCommand(msg);
       }
@@ -367,10 +512,27 @@ function handleControlMessage(msg) {
   }
 }
 
+// Send Authorization Approval / Decline to server
+function sendAuthResponse(peerId, approved) {
+  if (signalingWs && signalingWs.readyState === WebSocket.OPEN) {
+    signalingWs.send(JSON.stringify({
+      type: 'auth-response',
+      peerId,
+      approved: Boolean(approved)
+    }));
+  }
+}
+
 // Button Listeners for Room Setup
 document.getElementById('createRoomBtn')?.addEventListener('click', () => {
   if (signalingWs && signalingWs.readyState === WebSocket.OPEN) {
-    signalingWs.send(JSON.stringify({ type: 'create-room' }));
+    const pin = document.getElementById('createPinInput')?.value.trim();
+    const requireApproval = document.getElementById('createRequireAuth')?.checked ?? true;
+    signalingWs.send(JSON.stringify({
+      type: 'create-room',
+      pin: pin || null,
+      requireApproval
+    }));
   } else {
     window.showToast('Signaling server offline. Check connection.', 'error');
   }
@@ -379,11 +541,19 @@ document.getElementById('createRoomBtn')?.addEventListener('click', () => {
 document.getElementById('joinRoomBtn')?.addEventListener('click', () => {
   const input = document.getElementById('joinRoomInput');
   const code = input?.value.trim().toLowerCase();
+  const pin = document.getElementById('joinPinInput')?.value.trim();
   if (!code) return window.showToast('Please enter a room code.', 'warning');
 
   if (signalingWs && signalingWs.readyState === WebSocket.OPEN) {
     window.appState.isHost = false;
-    signalingWs.send(JSON.stringify({ type: 'join-room', code }));
+    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    const deviceInfo = isMobile ? 'Mobile Device' : 'Desktop Browser';
+    signalingWs.send(JSON.stringify({
+      type: 'join-room',
+      code,
+      pin: pin || null,
+      deviceInfo
+    }));
   } else {
     window.showToast('Signaling server offline.', 'error');
   }
@@ -393,5 +563,9 @@ document.getElementById('joinRoomBtn')?.addEventListener('click', () => {
 loadIceConfig().then(connectSignaling);
 
 window.sendControlMessage = sendControlMessage;
+window.sendAuthResponse = sendAuthResponse;
+window.startTelemetryHUD = startTelemetryHUD;
+window.stopTelemetryHUD = stopTelemetryHUD;
 window.getDataChannel = () => dataChannel;
 window.getPeerConnection = () => pc;
+
