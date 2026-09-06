@@ -384,6 +384,43 @@ wss.on('connection', (ws) => {
             }));
           }
         });
+
+        // Forward to PC Native Helper if active in this room
+        if (room.helper && room.helper !== ws && room.helper.readyState === WebSocket.OPEN) {
+          room.helper.send(JSON.stringify(msg.payload));
+        }
+        break;
+      }
+
+      // Cloud-Connected PC Helper Registration
+      case 'register-helper': {
+        const code = msg.roomCode ? String(msg.roomCode).trim().toLowerCase() : null;
+        if (!code || !rooms.has(code)) {
+          return ws.send(JSON.stringify({ type: 'error', message: `Room [${code}] not found or host is offline.` }));
+        }
+        const room = rooms.get(code);
+        room.helper = ws;
+        ws.isHelper = true;
+        ws.roomCode = code;
+
+        console.log(`[Helper] PC Helper registered for room ${code}`);
+        ws.send(JSON.stringify({
+          type: 'helper-registered',
+          code,
+          message: 'Connected to RemoteLink session as PC Native Agent.'
+        }));
+
+        // Broadcast to host and viewers that PC Agent is active
+        const targets = [room.host, ...room.viewers].filter(Boolean);
+        targets.forEach((target) => {
+          if (target && target.readyState === WebSocket.OPEN) {
+            target.send(JSON.stringify({
+              type: 'helper-status',
+              status: 'active',
+              platform: msg.platform || 'win32'
+            }));
+          }
+        });
         break;
       }
 
@@ -430,6 +467,9 @@ wss.on('connection', (ws) => {
                 viewer.send(JSON.stringify({ type: 'host-disconnected' }));
               }
             });
+            if (room.helper && room.helper.readyState === WebSocket.OPEN) {
+              room.helper.send(JSON.stringify({ type: 'host-disconnected' }));
+            }
             rooms.delete(ws.roomCode);
           } else {
             room.viewers = room.viewers.filter((v) => v !== ws);
@@ -451,6 +491,19 @@ wss.on('connection', (ws) => {
   ws.on('close', () => {
     if (ws.roomCode && rooms.has(ws.roomCode)) {
       const room = rooms.get(ws.roomCode);
+      if (ws.isHelper) {
+        if (room.helper === ws) {
+          room.helper = null;
+          const targets = [room.host, ...room.viewers].filter(Boolean);
+          targets.forEach((target) => {
+            if (target && target.readyState === WebSocket.OPEN) {
+              target.send(JSON.stringify({ type: 'helper-status', status: 'inactive' }));
+            }
+          });
+        }
+        return;
+      }
+
       if (ws.isHost) {
         // Host disconnected: notify all viewers and remove room
         room.viewers.forEach((viewer) => {
@@ -458,6 +511,9 @@ wss.on('connection', (ws) => {
             viewer.send(JSON.stringify({ type: 'host-disconnected' }));
           }
         });
+        if (room.helper && room.helper.readyState === WebSocket.OPEN) {
+          room.helper.send(JSON.stringify({ type: 'host-disconnected' }));
+        }
         rooms.delete(ws.roomCode);
       } else {
         // Viewer disconnected: remove from viewers and notify host

@@ -133,6 +133,10 @@ function setRoomCode(code) {
   if (activeRoomCodeEl) {
     activeRoomCodeEl.textContent = code;
   }
+  const helperCmd = document.getElementById('helperCliCommand');
+  if (helperCmd) {
+    helperCmd.textContent = `npm run helper ${code}`;
+  }
   if (activeRoomCard) {
     activeRoomCard.style.display = 'flex';
   }

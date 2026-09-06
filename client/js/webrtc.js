@@ -162,6 +162,18 @@ function connectSignaling() {
         break;
       }
 
+      // Cloud-Connected PC Agent Status
+      case 'helper-status': {
+        window.appState.helperConnected = (msg.status === 'active');
+        window.updateStatusBadges();
+        if (msg.status === 'active') {
+          window.showToast('PC Agent Ready! Native mouse & keyboard control enabled.', 'success');
+        } else {
+          window.showToast('PC Agent inactive.', 'info');
+        }
+        break;
+      }
+
       case 'peer-disconnected': {
         window.appState.peerConnected = false;
         window.appState.connectionMode = 'disconnected';
