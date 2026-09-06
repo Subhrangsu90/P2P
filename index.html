@@ -834,16 +834,35 @@ document.querySelectorAll('.tab-btn').forEach((btn) => {
   });
 });
 
+const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
 // ------------------------------------------
 // Connect to Local PC Helper (Windows Native Input)
 // ------------------------------------------
+function sendHelperStatusSync() {
+  const isHelperActive = helperWs && helperWs.readyState === WebSocket.OPEN;
+  sendControl({
+    type: 'helper-status-sync',
+    active: isHelperActive
+  });
+}
+
 function initHelperConnection() {
+  if (!isLocalHost) {
+    // We are on a phone or remote browser; we don't connect to 127.0.0.1 locally.
+    // Instead, we wait for the PC peer to broadcast its helper status over WebRTC!
+    badgeHelper.className = 'badge active';
+    badgeHelperText.textContent = 'PC Helper: P2P Sync';
+    return;
+  }
+
   try {
     helperWs = new WebSocket('ws://127.0.0.1:8081');
     helperWs.onopen = () => {
       badgeHelper.className = 'badge connected';
       badgeHelperText.textContent = 'Helper: Active (OS Control)';
       showToast('🖥️ Connected to PC Helper. Native OS input ready!');
+      sendHelperStatusSync();
     };
     helperWs.onmessage = (event) => {
       const msg = JSON.parse(event.data);
@@ -854,6 +873,7 @@ function initHelperConnection() {
     helperWs.onclose = () => {
       badgeHelper.className = 'badge disconnected';
       badgeHelperText.textContent = 'Helper: Off';
+      sendHelperStatusSync();
       setTimeout(initHelperConnection, 4000); // Retry periodically
     };
     helperWs.onerror = () => {
@@ -864,7 +884,7 @@ function initHelperConnection() {
     // Helper not running
   }
 }
-// Try connecting to helper on startup
+// Try connecting to helper on startup if on PC
 initHelperConnection();
 
 // ------------------------------------------
@@ -1100,6 +1120,9 @@ function setupDataChannelHandlers() {
   dataChannel.onopen = () => {
     showToast('⚡ Control & File Data Channel open');
     sendPermissionsSync();
+    if (isLocalHost) {
+      sendHelperStatusSync();
+    }
   };
 
   dataChannel.onmessage = (event) => {
@@ -1116,6 +1139,19 @@ function setupDataChannelHandlers() {
         case 'permissions-sync':
           Object.assign(remotePermissions, packet.permissions);
           updateRemotePermissionsUI();
+          break;
+
+        case 'helper-status-sync':
+          if (!isLocalHost) {
+            if (packet.active) {
+              badgeHelper.className = 'badge connected';
+              badgeHelperText.textContent = 'PC Helper: Active (OS Control)';
+              showToast('🖥️ Remote PC Helper is active! OS control enabled.');
+            } else {
+              badgeHelper.className = 'badge disconnected';
+              badgeHelperText.textContent = 'PC Helper: Off';
+            }
+          }
           break;
 
         case 'file-meta':
