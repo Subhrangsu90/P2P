@@ -7,21 +7,41 @@ let helperWs = null;
 // ------------------------------------------
 // Local PC Helper Connection (ws://127.0.0.1:8081)
 // ------------------------------------------
+let helperRetries = 0;
+const MAX_HELPER_RETRIES = 1;
+
 function connectLocalHelper() {
+  // Mobile devices are controllers/viewers; they never run the Windows PC native helper
+  const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  if (isMobile) {
+    return;
+  }
+
+  // Modern browsers block insecure ws://127.0.0.1 from an HTTPS production origin (Mixed Content)
+  if (window.location.protocol === 'https:') {
+    // Gracefully bypass local ws:// when hosted on HTTPS
+    return;
+  }
+
+  if (helperRetries >= MAX_HELPER_RETRIES) {
+    return;
+  }
+
   try {
     helperWs = new WebSocket('ws://127.0.0.1:8081');
 
     helperWs.onopen = () => {
+      helperRetries = 0;
       window.appState.helperConnected = true;
       window.updateStatusBadges();
-      window.showToast('Connected to local PC Helper', 'success');
-      console.log('[Helper] Connected to local PC Helper on port 8081.');
+      window.showToast('Connected to local PC Agent', 'success');
+      console.log('[Helper] Connected to local PC Agent on port 8081.');
     };
 
     helperWs.onclose = () => {
       window.appState.helperConnected = false;
       window.updateStatusBadges();
-      setTimeout(connectLocalHelper, 4000);
+      helperRetries++;
     };
 
     helperWs.onerror = () => {
@@ -41,7 +61,7 @@ function connectLocalHelper() {
       } catch (e) {}
     };
   } catch (err) {
-    console.warn('[Helper] Could not initiate helper connection:', err);
+    // Silent fail if local helper not running
   }
 }
 
