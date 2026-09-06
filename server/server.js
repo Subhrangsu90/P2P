@@ -19,7 +19,12 @@ const TURN_PORT = process.env.TURN_PORT || 3478;
 const TURN_USERNAME = 'remotelink';
 const TURN_CREDENTIAL = 'remotelink2024';
 
+const DIST_DIR = path.join(__dirname, '..', 'dist');
 const CLIENT_DIR = path.join(__dirname, '..', 'client');
+
+function getActiveStaticDir() {
+  return fs.existsSync(DIST_DIR) ? DIST_DIR : CLIENT_DIR;
+}
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -83,14 +88,11 @@ function serveStaticFile(req, res) {
 
   // Prevent directory traversal
   const safePath = path.normalize(reqPath).replace(/^(\.\.[\/\\])+/, '');
-  let filePath = path.join(CLIENT_DIR, safePath);
+  const staticDir = getActiveStaticDir();
+  let filePath = path.join(staticDir, safePath);
 
-  // Fallback to root directory if not found in client/ (for backward compatibility)
-  if (!fs.existsSync(filePath)) {
-    const rootFallback = path.join(__dirname, '..', safePath);
-    if (fs.existsSync(rootFallback) && !fs.statSync(rootFallback).isDirectory()) {
-      filePath = rootFallback;
-    }
+  if (!fs.existsSync(filePath) && staticDir === DIST_DIR) {
+    filePath = path.join(CLIENT_DIR, safePath);
   }
 
   fs.stat(filePath, (err, stats) => {

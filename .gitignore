@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+dist/
 
 # Compiled native binaries (auto-compiled from InputDriver.cs)
 *.exe

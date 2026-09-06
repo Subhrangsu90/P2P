@@ -69,20 +69,35 @@ P2P/
 
 ## 🚀 How to Run
 
-### 1. Start the Server & TURN Relay
-In a terminal:
-```bash
-npm start
-```
-- Web dashboard: `http://localhost:8080`
-- Mobile network address: `http://<your-lan-ip>:8080` (printed in terminal)
-- TURN relay: Port `3478`
+### Development Mode (with Vite HMR)
+1. In terminal 1 (Signaling & TURN server):
+   ```bash
+   npm start
+   ```
+2. In terminal 2 (Vite Hot-Reload Dev Server):
+   ```bash
+   npm run dev
+   ```
+   - Vite runs on `http://localhost:5173` (and network IP for your phone) with instant Hot Module Replacement.
+   - Automatically proxies WebSocket signaling and ICE config to port `8080`.
+3. In terminal 3 (Windows PC Helper):
+   ```bash
+   npm run helper
+   ```
 
-### 2. Start the Windows PC Helper
-In a second terminal:
-```bash
-npm run helper
-```
+### Production Mode (Optimized Build)
+1. Build frontend bundle:
+   ```bash
+   npm run build
+   ```
+2. Start server (serves the minified `dist/` bundle on port `8080`):
+   ```bash
+   npm start
+   ```
+3. Start PC Helper:
+   ```bash
+   npm run helper
+   ```
 - Helper runs on `ws://127.0.0.1:8081` to enable Windows Explorer actions and mouse/keyboard injection.
 
 ### 3. Connect Devices

@@ -40,7 +40,10 @@ async function loadIceConfig() {
 // ------------------------------------------
 function connectSignaling() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${protocol}//${window.location.host}`;
+  // If running on Vite dev server (port 5173), direct WebSocket connection to signaling server on port 8080
+  const port = window.location.port === '5173' ? '8080' : window.location.port;
+  const host = `${window.location.hostname}${port ? ':' + port : ''}`;
+  const wsUrl = `${protocol}//${host}`;
 
   signalingWs = new WebSocket(wsUrl);
 
