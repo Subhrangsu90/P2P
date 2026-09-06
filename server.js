@@ -1,10 +1,14 @@
 /**
- * Minimal WebRTC Signaling Server
- * ---------------------------------
+ * Minimal WebRTC Signaling Server + Built-in TURN Relay
+ * ------------------------------------------------------
  * Purpose: introduces two devices (phone + PC) to each other so they can
  * establish a direct peer-to-peer WebRTC connection. Once connected,
  * actual screen/control/file data never touches this server — it only
  * relays the initial handshake (offer/answer/ICE candidates).
+ *
+ * Built-in TURN relay: Chrome obfuscates local IPs with mDNS on HTTP
+ * origins, preventing direct host-candidate connectivity on LAN. The
+ * embedded TURN server on port 3478 provides relay candidates as fallback.
  *
  * Pairing model: simple "room code" — both devices join the same room
  * using a shared code (generated on one device, entered on the other).
@@ -17,8 +21,12 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
+const Turn = require('node-turn');
 
 const PORT = process.env.PORT || 8080;
+const TURN_PORT = process.env.TURN_PORT || 3478;
+const TURN_USERNAME = 'remotelink';
+const TURN_CREDENTIAL = 'remotelink2024';
 
 // In-memory room table: { roomCode: [ws1, ws2] }
 const rooms = new Map();
@@ -37,6 +45,29 @@ function getLocalIpAddresses() {
   return addresses;
 }
 
+// ------------------------------------------
+// Built-in TURN Relay Server
+// ------------------------------------------
+const turnServer = new Turn({
+  authMech: 'long-term',
+  credentials: {
+    [TURN_USERNAME]: TURN_CREDENTIAL
+  },
+  listeningPort: TURN_PORT,
+  debugLevel: 'WARN'
+});
+
+try {
+  turnServer.start();
+  console.log(`🔄 TURN relay server started on port ${TURN_PORT}`);
+} catch (err) {
+  console.error(`⚠️  TURN server failed to start: ${err.message}`);
+  console.error('   WebRTC may fail if mDNS candidates cannot be resolved.');
+}
+
+// ------------------------------------------
+// HTTP + WebSocket Signaling Server
+// ------------------------------------------
 const server = http.createServer((req, res) => {
   // Normalize URL
   const reqUrl = req.url.split('?')[0];
@@ -52,6 +83,28 @@ const server = http.createServer((req, res) => {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end(content);
     });
+    return;
+  }
+
+  // ICE config endpoint — webapp fetches TURN credentials dynamically
+  if (reqUrl === '/ice-config') {
+    const host = req.headers.host?.split(':')[0] || 'localhost';
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        {
+          urls: [
+            `turn:${host}:${TURN_PORT}`,
+            `turn:${host}:${TURN_PORT}?transport=tcp`
+          ],
+          username: TURN_USERNAME,
+          credential: TURN_CREDENTIAL
+        }
+      ],
+      iceCandidatePoolSize: 10
+    }));
     return;
   }
 
@@ -141,7 +194,8 @@ wss.on('connection', (ws) => {
 server.listen(PORT, '0.0.0.0', () => {
   const ips = getLocalIpAddresses();
   console.log('====================================================');
-  console.log(`🚀 Signaling & Web Server is running on port ${PORT}`);
+  console.log(`🚀 Signaling & Web Server running on port ${PORT}`);
+  console.log(`🔄 TURN relay server running on port ${TURN_PORT}`);
   console.log(`💻 Local:   http://localhost:${PORT}`);
   if (ips.length > 0) {
     ips.forEach((ip) => {
@@ -150,4 +204,5 @@ server.listen(PORT, '0.0.0.0', () => {
   }
   console.log('====================================================');
 });
+
 

@@ -583,6 +583,7 @@
 
     <div id="statusBar" class="status-bar">
       <span>●</span> <span id="statusText">Enter your signaling server URL or connect to get started.</span>
+      <button id="iceRestartBtn" class="secondary" style="display: none; padding: 4px 10px; font-size: 0.75rem; margin-left: auto;">🔄 Retry P2P</button>
     </div>
   </div>
 
@@ -840,6 +841,7 @@ const isLocalHost = window.location.hostname === 'localhost' || window.location.
 // Connect to Local PC Helper (Windows Native Input)
 // ------------------------------------------
 let hasLocalHelper = false;
+let remoteHasHelper = false; // Track if the remote PC peer has a helper
 
 function sendHelperStatusSync() {
   if (hasLocalHelper) {
@@ -851,6 +853,14 @@ function sendHelperStatusSync() {
 }
 
 function initHelperConnection() {
+  // Only attempt local helper connection on PC (localhost).
+  // On phone/remote devices, helper status comes via WebRTC data channel sync.
+  if (!isLocalHost) {
+    badgeHelper.className = 'badge';
+    badgeHelperText.textContent = 'Helper: N/A (Phone)';
+    return;
+  }
+
   try {
     helperWs = new WebSocket('ws://127.0.0.1:8081');
     helperWs.onopen = () => {
@@ -868,19 +878,12 @@ function initHelperConnection() {
     };
     helperWs.onclose = () => {
       hasLocalHelper = false;
-      if (!badgeHelperText.textContent.includes('Remote')) {
-        badgeHelper.className = 'badge disconnected';
-        badgeHelperText.textContent = 'Helper: Off';
-      }
+      badgeHelper.className = 'badge disconnected';
+      badgeHelperText.textContent = 'PC Helper: Off (Reconnecting…)';
       setTimeout(initHelperConnection, 4000); // Retry periodically
     };
     helperWs.onerror = () => {
       hasLocalHelper = false;
-      // If we are on mobile, 127.0.0.1 fails as expected; display clean waiting status
-      if (!badgeHelperText.textContent.includes('Remote') && !badgeHelperText.textContent.includes('Active')) {
-        badgeHelper.className = 'badge';
-        badgeHelperText.textContent = 'PC Helper: Waiting for PC';
-      }
     };
   } catch (e) {
     hasLocalHelper = false;
@@ -1012,15 +1015,35 @@ copyCodeBtn.addEventListener('click', () => {
 // ------------------------------------------
 // WebRTC Setup & Handshake
 // ------------------------------------------
-const rtcConfig = {
+// ICE config is fetched dynamically from the server so the TURN URL
+// uses the correct hostname (e.g. turn:10.162.136.137:3478 for the phone)
+let rtcConfig = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' }
-  ]
+    { urls: 'stun:stun1.l.google.com:19302' }
+  ],
+  iceCandidatePoolSize: 10
 };
 
+// Fetch TURN config from the signaling server
+async function loadIceConfig() {
+  try {
+    const baseUrl = window.location.origin;
+    const resp = await fetch(`${baseUrl}/ice-config`);
+    if (resp.ok) {
+      rtcConfig = await resp.json();
+      console.log('[ICE] Loaded config from server:', JSON.stringify(rtcConfig.iceServers.map(s => s.urls)));
+      showToast('🔄 TURN relay config loaded');
+    }
+  } catch (err) {
+    console.warn('[ICE] Could not fetch /ice-config, using STUN-only fallback:', err.message);
+  }
+}
+loadIceConfig();
+
+const iceRestartBtn = document.getElementById('iceRestartBtn');
 let iceCandidateQueue = [];
+let iceRestartAttempts = 0;
 
 function setupPeerConnection() {
   if (pc) {
@@ -1030,9 +1053,25 @@ function setupPeerConnection() {
   iceCandidateQueue = [];
   pc = new RTCPeerConnection(rtcConfig);
 
+  // Log ICE candidates for debugging
   pc.onicecandidate = (event) => {
-    if (event.candidate && ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'signal', data: { candidate: event.candidate } }));
+    if (event.candidate) {
+      const c = event.candidate;
+      const candidateType = c.candidate.match(/typ (\w+)/)?.[1] || 'unknown';
+      console.log(`[ICE] Local candidate: ${candidateType} | ${c.candidate.substring(0, 80)}...`);
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'signal', data: { candidate: event.candidate } }));
+      }
+    } else {
+      console.log('[ICE] All local candidates gathered.');
+    }
+  };
+
+  // Log ICE gathering state
+  pc.onicegatheringstatechange = () => {
+    console.log(`[ICE] Gathering state: ${pc.iceGatheringState}`);
+    if (pc.iceGatheringState === 'complete') {
+      setStatus(`WebRTC: ICE gathered, waiting for connection...`);
     }
   };
 
@@ -1056,22 +1095,59 @@ function setupPeerConnection() {
   const checkConnectionSuccess = () => {
     const connState = pc.connectionState;
     const iceState = pc.iceConnectionState;
+    console.log(`[WebRTC] connection: ${connState}, ice: ${iceState}`);
     setStatus(`WebRTC: ${connState || iceState}`);
 
     if (connState === 'connected' || iceState === 'connected' || iceState === 'completed') {
       badgeP2P.className = 'badge connected';
       badgeP2PText.textContent = 'P2P: Connected';
+      iceRestartBtn.style.display = 'none';
+      iceRestartAttempts = 0;
       enableP2PControls();
     } else if (connState === 'failed' || iceState === 'failed') {
       badgeP2P.className = 'badge disconnected';
       badgeP2PText.textContent = 'P2P: Failed';
+      iceRestartBtn.style.display = 'inline-flex';
       disableP2PControls();
+
+      // Auto ICE restart on first failure
+      if (iceRestartAttempts < 2) {
+        iceRestartAttempts++;
+        console.log(`[ICE] Auto restart attempt ${iceRestartAttempts}...`);
+        setStatus(`P2P failed — auto-retrying (attempt ${iceRestartAttempts})...`);
+        setTimeout(() => performIceRestart(), 1500);
+      } else {
+        setStatus('P2P connection failed. Click "Retry P2P" or check firewall/network.');
+        showToast('❌ P2P failed. Try the Retry button or check your network.');
+      }
+    } else if (connState === 'connecting' || iceState === 'checking') {
+      badgeP2P.className = 'badge active';
+      badgeP2PText.textContent = 'P2P: Connecting...';
     }
   };
 
   pc.onconnectionstatechange = checkConnectionSuccess;
   pc.oniceconnectionstatechange = checkConnectionSuccess;
 }
+
+async function performIceRestart() {
+  if (!pc || !ws || ws.readyState !== WebSocket.OPEN) return;
+  try {
+    const offer = await pc.createOffer({ iceRestart: true });
+    await pc.setLocalDescription(offer);
+    ws.send(JSON.stringify({ type: 'signal', data: { sdp: offer } }));
+    console.log('[ICE] Restart offer sent.');
+  } catch (err) {
+    console.error('[ICE] Restart failed:', err);
+  }
+}
+
+// Manual retry button
+iceRestartBtn.addEventListener('click', () => {
+  iceRestartAttempts = 0;
+  performIceRestart();
+  showToast('🔄 Retrying P2P connection...');
+});
 
 async function createWebRTCOffer() {
   dataChannel = pc.createDataChannel('control', { ordered: true });
@@ -1088,6 +1164,17 @@ async function handleSignal(data) {
   }
 
   if (data.sdp) {
+    // Guard against stale answers arriving after an ICE restart
+    if (data.sdp.type === 'answer' && pc.signalingState !== 'have-local-offer') {
+      console.warn(`[Signal] Ignoring stale answer (state: ${pc.signalingState})`);
+      return;
+    }
+    // Handle offer glare: both sides sent offers simultaneously
+    if (data.sdp.type === 'offer' && pc.signalingState === 'have-local-offer') {
+      console.warn('[Signal] Offer glare — rolling back local offer to accept remote.');
+      await pc.setLocalDescription({ type: 'rollback' });
+    }
+
     await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
 
     // Flush any queued ICE candidates
@@ -1169,13 +1256,18 @@ function setupDataChannelHandlers() {
           break;
 
         case 'helper-status-sync':
+          remoteHasHelper = !!packet.active;
           if (packet.active) {
-            badgeHelper.className = 'badge connected';
-            badgeHelperText.textContent = 'PC Helper: Active (OS Control)';
+            // On phone: show that the remote PC's helper is active
+            // On PC: already showing local helper status, but update if needed
+            if (!hasLocalHelper) {
+              badgeHelper.className = 'badge connected';
+              badgeHelperText.textContent = 'PC Helper: Active (Remote)';
+            }
             showToast('🖥️ Remote PC Helper is active! OS control enabled.');
           } else if (!hasLocalHelper) {
             badgeHelper.className = 'badge disconnected';
-            badgeHelperText.textContent = 'PC Helper: Off';
+            badgeHelperText.textContent = 'PC Helper: Off (Remote)';
           }
           break;
 
