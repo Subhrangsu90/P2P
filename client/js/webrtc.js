@@ -10,11 +10,22 @@ let localStream = null;
 let isMakingOffer = false;
 let ignoreOffer = false;
 
-// Fallback ICE Servers
+// Fallback ICE Servers with Global TURN Relay
 let rtcConfig = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' }
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:global.stun.twilio.com:3478' },
+    {
+      urls: [
+        'turn:openrelay.metered.ca:80',
+        'turn:openrelay.metered.ca:443',
+        'turn:openrelay.metered.ca:443?transport=tcp'
+      ],
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    }
   ],
   iceCandidatePoolSize: 10
 };
@@ -78,12 +89,18 @@ function connectSignaling() {
         window.appState.isHost = true;
         window.setRoomCode(msg.code);
         window.showToast(`Session created: ${msg.code}`, 'success');
+        setPairingDisabledState(true);
+        const headerDisconnect = document.getElementById('headerDisconnectBtn');
+        if (headerDisconnect) headerDisconnect.style.display = 'inline-flex';
         break;
       }
 
       case 'paired': {
         window.setRoomCode(msg.code);
         window.showToast('Connected! Initializing secure link...', 'success');
+        setPairingDisabledState(true);
+        const headerDisconnect = document.getElementById('headerDisconnectBtn');
+        if (headerDisconnect) headerDisconnect.style.display = 'inline-flex';
         setupPeerConnection();
         break;
       }
@@ -91,6 +108,9 @@ function connectSignaling() {
       case 'peer-joined': {
         window.setRoomCode(msg.code);
         window.showToast('New device joined session! Linking...', 'success');
+        setPairingDisabledState(true);
+        const headerDisconnect = document.getElementById('headerDisconnectBtn');
+        if (headerDisconnect) headerDisconnect.style.display = 'inline-flex';
         setupPeerConnection();
 
         if (window.appState.isHost) {
@@ -113,6 +133,7 @@ function connectSignaling() {
       }
 
       case 'auth-declined': {
+        setPairingDisabledState(false);
         window.showToast(msg.message || 'Connection was declined.', 'error');
         break;
       }
@@ -131,14 +152,13 @@ function connectSignaling() {
       }
 
       case 'host-disconnected': {
-        window.appState.peerConnected = false;
-        window.updateStatusBadges();
+        disconnectSession();
         window.showToast('Host closed the session.', 'warning');
-        cleanupPeerConnection();
         break;
       }
 
       case 'error': {
+        setPairingDisabledState(false);
         window.showToast(msg.message, 'error');
         break;
       }
@@ -325,19 +345,32 @@ async function handleSignal(data) {
   }
 }
 
+let iceRestartTimer = null;
+
 async function restartIce() {
   if (!pc || !window.appState.isHost) return;
-  try {
-    const offer = await pc.createOffer({ iceRestart: true });
-    await pc.setLocalDescription(offer);
-    signalingWs.send(JSON.stringify({
-      type: 'signal',
-      data: { sdp: pc.localDescription }
-    }));
-    console.log('[ICE] Restart offer sent.');
-  } catch (err) {
-    console.error('[ICE] Restart failed:', err);
-  }
+  if (iceRestartTimer) clearTimeout(iceRestartTimer);
+
+  iceRestartTimer = setTimeout(async () => {
+    if (!pc || pc.connectionState === 'connected') return;
+    try {
+      if (pc.signalingState !== 'stable') {
+        await pc.setLocalDescription({ type: 'rollback' }).catch(() => {});
+      }
+      isMakingOffer = true;
+      const offer = await pc.createOffer({ iceRestart: true });
+      await pc.setLocalDescription(offer);
+      signalingWs.send(JSON.stringify({
+        type: 'signal',
+        data: { sdp: pc.localDescription }
+      }));
+      console.log('[ICE] Restart offer sent.');
+    } catch (err) {
+      console.error('[ICE] Restart failed:', err);
+    } finally {
+      isMakingOffer = false;
+    }
+  }, 1200);
 }
 
 // ------------------------------------------
@@ -523,9 +556,58 @@ function sendAuthResponse(peerId, approved) {
   }
 }
 
-// Button Listeners for Room Setup
+// ------------------------------------------
+// Button Disabled States & Disconnect Flow
+// ------------------------------------------
+function setPairingDisabledState(disabled) {
+  const createBtn = document.getElementById('createRoomBtn');
+  const joinBtn = document.getElementById('joinRoomBtn');
+  const joinInput = document.getElementById('joinRoomInput');
+  const joinPin = document.getElementById('joinPinInput');
+  const createPin = document.getElementById('createPinInput');
+  const createAuth = document.getElementById('createRequireAuth');
+
+  if (createBtn) createBtn.disabled = disabled;
+  if (joinBtn) joinBtn.disabled = disabled;
+  if (joinInput) joinInput.disabled = disabled;
+  if (joinPin) joinPin.disabled = disabled;
+  if (createPin) createPin.disabled = disabled;
+  if (createAuth) createAuth.disabled = disabled;
+}
+
+function disconnectSession() {
+  if (signalingWs && signalingWs.readyState === WebSocket.OPEN) {
+    signalingWs.send(JSON.stringify({ type: 'leave-room' }));
+  }
+
+  // Stop local screen streaming if running
+  const stopShareBtn = document.getElementById('stopShareBtn');
+  if (stopShareBtn && stopShareBtn.style.display !== 'none') {
+    stopShareBtn.click();
+  }
+
+  cleanupPeerConnection();
+
+  window.appState.peerConnected = false;
+  window.appState.roomCode = null;
+  window.appState.isHost = false;
+  window.updateStatusBadges();
+
+  // Reset UI elements
+  const activeRoomCard = document.getElementById('activeRoomCard');
+  if (activeRoomCard) activeRoomCard.style.display = 'none';
+
+  const headerDisconnect = document.getElementById('headerDisconnectBtn');
+  if (headerDisconnect) headerDisconnect.style.display = 'none';
+
+  setPairingDisabledState(false);
+  window.showToast('Disconnected from session.', 'info');
+}
+
+// Button Listeners for Room Setup & Disconnect
 document.getElementById('createRoomBtn')?.addEventListener('click', () => {
   if (signalingWs && signalingWs.readyState === WebSocket.OPEN) {
+    setPairingDisabledState(true);
     const pin = document.getElementById('createPinInput')?.value.trim();
     const requireApproval = document.getElementById('createRequireAuth')?.checked ?? true;
     signalingWs.send(JSON.stringify({
@@ -542,9 +624,10 @@ document.getElementById('joinRoomBtn')?.addEventListener('click', () => {
   const input = document.getElementById('joinRoomInput');
   const code = input?.value.trim().toLowerCase();
   const pin = document.getElementById('joinPinInput')?.value.trim();
-  if (!code) return window.showToast('Please enter a room code.', 'warning');
+  if (!code) return window.showToast('Please enter a connection code.', 'warning');
 
   if (signalingWs && signalingWs.readyState === WebSocket.OPEN) {
+    setPairingDisabledState(true);
     window.appState.isHost = false;
     const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
     const deviceInfo = isMobile ? 'Mobile Device' : 'Desktop Browser';
@@ -559,6 +642,9 @@ document.getElementById('joinRoomBtn')?.addEventListener('click', () => {
   }
 });
 
+document.getElementById('disconnectBtn')?.addEventListener('click', disconnectSession);
+document.getElementById('headerDisconnectBtn')?.addEventListener('click', disconnectSession);
+
 // Init on Load
 loadIceConfig().then(connectSignaling);
 
@@ -566,6 +652,8 @@ window.sendControlMessage = sendControlMessage;
 window.sendAuthResponse = sendAuthResponse;
 window.startTelemetryHUD = startTelemetryHUD;
 window.stopTelemetryHUD = stopTelemetryHUD;
+window.disconnectSession = disconnectSession;
+window.setPairingDisabledState = setPairingDisabledState;
 window.getDataChannel = () => dataChannel;
 window.getPeerConnection = () => pc;
 

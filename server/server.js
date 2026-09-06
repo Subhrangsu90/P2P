@@ -120,20 +120,40 @@ const server = http.createServer((req, res) => {
   // Dynamic ICE config endpoint
   if (reqUrl === '/ice-config') {
     const host = req.headers.host?.split(':')[0] || 'localhost';
+    const isLocalhost = host === 'localhost' || host === '127.0.0.1';
+
+    const iceServers = [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:global.stun.twilio.com:3478' },
+      // Production Global TURN Relay (Works over standard web ports 80 & 443 across cellular CGNAT/firewalls)
+      {
+        urls: [
+          'turn:openrelay.metered.ca:80',
+          'turn:openrelay.metered.ca:443',
+          'turn:openrelay.metered.ca:443?transport=tcp'
+        ],
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      }
+    ];
+
+    // If running on local development machine, also append the local node-turn server
+    if (isLocalhost) {
+      iceServers.push({
+        urls: [
+          `turn:${host}:${TURN_PORT}`,
+          `turn:${host}:${TURN_PORT}?transport=tcp`
+        ],
+        username: TURN_USERNAME,
+        credential: TURN_CREDENTIAL
+      });
+    }
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        {
-          urls: [
-            `turn:${host}:${TURN_PORT}`,
-            `turn:${host}:${TURN_PORT}?transport=tcp`
-          ],
-          username: TURN_USERNAME,
-          credential: TURN_CREDENTIAL
-        }
-      ],
+      iceServers,
       iceCandidatePoolSize: 10
     }));
     return;
@@ -310,6 +330,28 @@ wss.on('connection', (ws) => {
               }));
             }
           });
+        }
+        break;
+      }
+
+      case 'leave-room': {
+        if (ws.roomCode && rooms.has(ws.roomCode)) {
+          const room = rooms.get(ws.roomCode);
+          if (ws.isHost) {
+            room.viewers.forEach((viewer) => {
+              if (viewer.readyState === WebSocket.OPEN) {
+                viewer.send(JSON.stringify({ type: 'host-disconnected' }));
+              }
+            });
+            rooms.delete(ws.roomCode);
+          } else {
+            room.viewers = room.viewers.filter((v) => v !== ws);
+            if (room.host && room.host.readyState === WebSocket.OPEN) {
+              room.host.send(JSON.stringify({ type: 'peer-disconnected', peerId: ws.peerId, viewerCount: room.viewers.length }));
+            }
+          }
+          ws.roomCode = null;
+          ws.isHost = false;
         }
         break;
       }

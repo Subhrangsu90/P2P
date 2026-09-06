@@ -564,6 +564,22 @@ input[type="text"]:focus {
   border-radius: var(--radius-sm);
 }
 
+.btn:disabled,
+.btn.disabled,
+button:disabled {
+  opacity: 0.52 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+input:disabled {
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+  background: var(--bg-subtle) !important;
+}
+
 .btn-icon {
   width: 30px;
   height: 30px;

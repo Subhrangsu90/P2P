@@ -59,6 +59,13 @@
         <div id="badgeHelper" class="status-badge">
           <span class="status-dot"></span> <span class="badge-text">PC Agent: Inactive</span>
         </div>
+        <button id="headerDisconnectBtn" class="btn btn-danger btn-sm" style="display: none;" title="Disconnect current session">
+          <svg class="btn-svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
+            <line x1="12" y1="2" x2="12" y2="12"/>
+          </svg>
+          <span>Disconnect</span>
+        </button>
         <button id="btnToggleHud" class="btn-icon" title="View Connection Speed &amp; Quality Stats" aria-label="Connection Stats">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
@@ -242,6 +249,13 @@
                 <rect x="3" y="14" width="7" height="7"/>
               </svg>
               <span>Scan QR</span>
+            </button>
+            <button id="disconnectBtn" class="btn btn-danger btn-sm" title="Disconnect and end session">
+              <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
+                <line x1="12" y1="2" x2="12" y2="12"/>
+              </svg>
+              <span>Disconnect</span>
             </button>
           </div>
         </div>
