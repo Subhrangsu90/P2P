@@ -839,28 +839,24 @@ const isLocalHost = window.location.hostname === 'localhost' || window.location.
 // ------------------------------------------
 // Connect to Local PC Helper (Windows Native Input)
 // ------------------------------------------
+let hasLocalHelper = false;
+
 function sendHelperStatusSync() {
-  const isHelperActive = helperWs && helperWs.readyState === WebSocket.OPEN;
-  sendControl({
-    type: 'helper-status-sync',
-    active: isHelperActive
-  });
+  if (hasLocalHelper) {
+    sendControl({
+      type: 'helper-status-sync',
+      active: true
+    });
+  }
 }
 
 function initHelperConnection() {
-  if (!isLocalHost) {
-    // We are on a phone or remote browser; we don't connect to 127.0.0.1 locally.
-    // Instead, we wait for the PC peer to broadcast its helper status over WebRTC!
-    badgeHelper.className = 'badge active';
-    badgeHelperText.textContent = 'PC Helper: P2P Sync';
-    return;
-  }
-
   try {
     helperWs = new WebSocket('ws://127.0.0.1:8081');
     helperWs.onopen = () => {
+      hasLocalHelper = true;
       badgeHelper.className = 'badge connected';
-      badgeHelperText.textContent = 'Helper: Active (OS Control)';
+      badgeHelperText.textContent = 'PC Helper: Active (Local)';
       showToast('🖥️ Connected to PC Helper. Native OS input ready!');
       sendHelperStatusSync();
     };
@@ -871,20 +867,26 @@ function initHelperConnection() {
       }
     };
     helperWs.onclose = () => {
-      badgeHelper.className = 'badge disconnected';
-      badgeHelperText.textContent = 'Helper: Off';
-      sendHelperStatusSync();
+      hasLocalHelper = false;
+      if (!badgeHelperText.textContent.includes('Remote')) {
+        badgeHelper.className = 'badge disconnected';
+        badgeHelperText.textContent = 'Helper: Off';
+      }
       setTimeout(initHelperConnection, 4000); // Retry periodically
     };
     helperWs.onerror = () => {
-      badgeHelper.className = 'badge disconnected';
-      badgeHelperText.textContent = 'Helper: Off';
+      hasLocalHelper = false;
+      // If we are on mobile, 127.0.0.1 fails as expected; display clean waiting status
+      if (!badgeHelperText.textContent.includes('Remote') && !badgeHelperText.textContent.includes('Active')) {
+        badgeHelper.className = 'badge';
+        badgeHelperText.textContent = 'PC Helper: Waiting for PC';
+      }
     };
   } catch (e) {
-    // Helper not running
+    hasLocalHelper = false;
   }
 }
-// Try connecting to helper on startup if on PC
+// Try connecting to helper on startup
 initHelperConnection();
 
 // ------------------------------------------
@@ -946,7 +948,7 @@ connectBtn.addEventListener('click', () => {
       }
 
       case 'paired': {
-        setStatus('Paired with peer! Initiating direct WebRTC handshake...');
+        setStatus('Paired with peer! Establishing direct WebRTC connection...');
         badgeP2P.className = 'badge active';
         badgeP2PText.textContent = 'P2P: Handshaking';
         setupPeerConnection();
@@ -1013,15 +1015,19 @@ copyCodeBtn.addEventListener('click', () => {
 const rtcConfig = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' }
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' }
   ]
 };
+
+let iceCandidateQueue = [];
 
 function setupPeerConnection() {
   if (pc) {
     try { pc.close(); } catch (e) {}
   }
 
+  iceCandidateQueue = [];
   pc = new RTCPeerConnection(rtcConfig);
 
   pc.onicecandidate = (event) => {
@@ -1047,21 +1053,24 @@ function setupPeerConnection() {
     setupDataChannelHandlers();
   };
 
-  pc.onconnectionstatechange = () => {
-    const state = pc.connectionState;
-    setStatus(`WebRTC state: ${state}`);
+  const checkConnectionSuccess = () => {
+    const connState = pc.connectionState;
+    const iceState = pc.iceConnectionState;
+    setStatus(`WebRTC: ${connState || iceState}`);
 
-    if (state === 'connected') {
+    if (connState === 'connected' || iceState === 'connected' || iceState === 'completed') {
       badgeP2P.className = 'badge connected';
       badgeP2PText.textContent = 'P2P: Connected';
-      showToast('🎉 Direct P2P connection established!');
       enableP2PControls();
-    } else if (state === 'disconnected' || state === 'failed') {
+    } else if (connState === 'failed' || iceState === 'failed') {
       badgeP2P.className = 'badge disconnected';
-      badgeP2PText.textContent = `P2P: ${state}`;
+      badgeP2PText.textContent = 'P2P: Failed';
       disableP2PControls();
     }
   };
+
+  pc.onconnectionstatechange = checkConnectionSuccess;
+  pc.oniceconnectionstatechange = checkConnectionSuccess;
 }
 
 async function createWebRTCOffer() {
@@ -1074,20 +1083,37 @@ async function createWebRTCOffer() {
 }
 
 async function handleSignal(data) {
-  if (!pc) return;
+  if (!pc) {
+    setupPeerConnection();
+  }
 
   if (data.sdp) {
     await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+
+    // Flush any queued ICE candidates
+    while (iceCandidateQueue.length > 0) {
+      const cand = iceCandidateQueue.shift();
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(cand));
+      } catch (err) {
+        console.warn('Could not add queued ICE candidate', err);
+      }
+    }
+
     if (data.sdp.type === 'offer') {
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       ws.send(JSON.stringify({ type: 'signal', data: { sdp: answer } }));
     }
   } else if (data.candidate) {
-    try {
-      await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-    } catch (err) {
-      console.warn('Could not add ICE candidate', err);
+    if (!pc.remoteDescription || !pc.remoteDescription.type) {
+      iceCandidateQueue.push(data.candidate);
+    } else {
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+      } catch (err) {
+        console.warn('Could not add ICE candidate', err);
+      }
     }
   }
 }
@@ -1118,11 +1144,12 @@ function setupDataChannelHandlers() {
   dataChannel.binaryType = 'arraybuffer';
 
   dataChannel.onopen = () => {
+    badgeP2P.className = 'badge connected';
+    badgeP2PText.textContent = 'P2P: Connected';
     showToast('⚡ Control & File Data Channel open');
+    enableP2PControls();
     sendPermissionsSync();
-    if (isLocalHost) {
-      sendHelperStatusSync();
-    }
+    sendHelperStatusSync();
   };
 
   dataChannel.onmessage = (event) => {
@@ -1142,15 +1169,13 @@ function setupDataChannelHandlers() {
           break;
 
         case 'helper-status-sync':
-          if (!isLocalHost) {
-            if (packet.active) {
-              badgeHelper.className = 'badge connected';
-              badgeHelperText.textContent = 'PC Helper: Active (OS Control)';
-              showToast('🖥️ Remote PC Helper is active! OS control enabled.');
-            } else {
-              badgeHelper.className = 'badge disconnected';
-              badgeHelperText.textContent = 'PC Helper: Off';
-            }
+          if (packet.active) {
+            badgeHelper.className = 'badge connected';
+            badgeHelperText.textContent = 'PC Helper: Active (OS Control)';
+            showToast('🖥️ Remote PC Helper is active! OS control enabled.');
+          } else if (!hasLocalHelper) {
+            badgeHelper.className = 'badge disconnected';
+            badgeHelperText.textContent = 'PC Helper: Off';
           }
           break;
 
