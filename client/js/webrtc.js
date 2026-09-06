@@ -88,7 +88,10 @@ function connectSignaling() {
 
       case 'paired': {
         window.setRoomCode(msg.code);
-        window.showToast('Connected! Initializing secure link...', 'success');
+        window.appState.peerConnected = true;
+        window.appState.connectionMode = 'relay';
+        window.updateStatusBadges();
+        window.showToast('Linked! Initializing secure channel...', 'success');
         setPairingDisabledState(true);
         const headerDisconnect = document.getElementById('headerDisconnectBtn');
         if (headerDisconnect) headerDisconnect.style.display = 'inline-flex';
@@ -98,7 +101,10 @@ function connectSignaling() {
 
       case 'peer-joined': {
         window.setRoomCode(msg.code);
-        window.showToast('New device joined session! Linking...', 'success');
+        window.appState.peerConnected = true;
+        window.appState.connectionMode = 'relay';
+        window.updateStatusBadges();
+        window.showToast('Remote device linked! Establishing connection...', 'success');
         setPairingDisabledState(true);
         const headerDisconnect = document.getElementById('headerDisconnectBtn');
         if (headerDisconnect) headerDisconnect.style.display = 'inline-flex';
@@ -134,8 +140,31 @@ function connectSignaling() {
         break;
       }
 
+      // Hybrid Cloud Relay: Inbound control message
+      case 'relayed-message': {
+        handleControlMessage(msg.payload);
+        break;
+      }
+
+      // Hybrid Cloud Relay: Inbound screen frame
+      case 'screen-frame': {
+        if (window.handleIncomingScreenFrame) {
+          window.handleIncomingScreenFrame(msg.frame);
+        }
+        break;
+      }
+
+      // Hybrid Cloud Relay: Inbound file chunk
+      case 'relayed-file-chunk': {
+        if (window.handleIncomingFileChunkRelayed) {
+          window.handleIncomingFileChunkRelayed(msg.chunk, msg.meta);
+        }
+        break;
+      }
+
       case 'peer-disconnected': {
         window.appState.peerConnected = false;
+        window.appState.connectionMode = 'disconnected';
         window.updateStatusBadges();
         window.showToast('Device disconnected.', 'warning');
         cleanupPeerConnection();
@@ -180,16 +209,24 @@ function setupPeerConnection() {
     console.log(`[WebRTC] Connection state: ${pc.connectionState}`);
     if (pc.connectionState === 'connected') {
       window.appState.peerConnected = true;
+      window.appState.connectionMode = 'p2p';
       window.updateStatusBadges();
-      window.showToast('Direct Device Link Established!', 'success');
+      window.showToast('Upgraded to Direct High-Speed P2P Link!', 'success');
       startTelemetryHUD();
-    } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
-      window.appState.peerConnected = false;
+    } else if (pc.connectionState === 'failed') {
+      // Mobile carrier symmetric NAT blocked direct UDP socket.
+      // Seamlessly keep connection alive in Cloud Relay mode!
+      window.appState.peerConnected = true;
+      window.appState.connectionMode = 'relay';
       window.updateStatusBadges();
       stopTelemetryHUD();
-      if (pc.connectionState === 'failed') {
-        window.showToast('Direct link failed. If connecting across mobile data (CGNAT), connect both devices to same Wi-Fi or add TURN credentials.', 'warning');
-        restartIce();
+      console.log('[WebRTC] Symmetric NAT encountered. Operating seamlessly via Cloud Relay.');
+      window.showToast('Connected via Cloud Relay (Cross-Network Active)', 'info');
+    } else if (pc.connectionState === 'disconnected') {
+      if (signalingWs && signalingWs.readyState === WebSocket.OPEN && window.appState.roomCode) {
+        window.appState.peerConnected = true;
+        window.appState.connectionMode = 'relay';
+        window.updateStatusBadges();
       }
     }
   };
@@ -229,6 +266,7 @@ function setupDataChannelEvents(channel) {
   dataChannel.onopen = () => {
     console.log('[DataChannel] Channel is OPEN.');
     window.appState.peerConnected = true;
+    window.appState.connectionMode = 'p2p';
     window.updateStatusBadges();
 
     // Sync initial privacy permissions
@@ -493,6 +531,12 @@ function cleanupPeerConnection() {
 function sendControlMessage(obj) {
   if (dataChannel && dataChannel.readyState === 'open') {
     dataChannel.send(JSON.stringify(obj));
+  } else if (signalingWs && signalingWs.readyState === WebSocket.OPEN && window.appState.roomCode) {
+    // Seamless Cloud Relay fallback across mobile CGNAT / different networks
+    signalingWs.send(JSON.stringify({
+      type: 'relay-message',
+      payload: obj
+    }));
   }
 }
 

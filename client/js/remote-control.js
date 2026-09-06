@@ -253,18 +253,47 @@ function initScreenShare() {
   const fullscreenBtn = document.getElementById('toggleFullscreenBtn');
   const pipBtn = document.getElementById('pipBtn');
   const remoteVideo = document.getElementById('remoteVideo');
+  const relayScreenCanvas = document.getElementById('relayScreenCanvas');
   const screenWrapper = document.getElementById('screenWrapper');
+  const placeholder = document.getElementById('screenPlaceholder');
 
   let localScreenStream = null;
+  let relayFrameTimer = null;
+
+  // Inbound screen frame receiver (WebSocket Cloud Relay fallback)
+  const relayImage = new Image();
+  const relayCtx = relayScreenCanvas ? relayScreenCanvas.getContext('2d') : null;
+
+  relayImage.onload = () => {
+    // If WebRTC is actively playing, prefer hardware video
+    if (remoteVideo && remoteVideo.srcObject && remoteVideo.videoWidth > 0) {
+      if (relayScreenCanvas) relayScreenCanvas.style.display = 'none';
+      if (remoteVideo) remoteVideo.style.display = 'block';
+      return;
+    }
+
+    if (placeholder) placeholder.style.display = 'none';
+    if (screenWrapper) screenWrapper.classList.add('streaming');
+    if (remoteVideo) remoteVideo.style.display = 'none';
+    if (relayScreenCanvas && relayCtx) {
+      relayScreenCanvas.style.display = 'block';
+      relayScreenCanvas.width = relayImage.width;
+      relayScreenCanvas.height = relayImage.height;
+      relayCtx.drawImage(relayImage, 0, 0);
+    }
+  };
+
+  window.handleIncomingScreenFrame = (frameData) => {
+    relayImage.src = frameData;
+  };
 
   startBtn?.addEventListener('click', async () => {
     if (!window.appState.localPermissions.screenShare) {
       return window.showToast('Screen sharing is disabled in Privacy Settings.', 'warning');
     }
 
-    const pc = window.getPeerConnection();
-    if (!pc) {
-      return window.showToast('P2P connection not active yet.', 'error');
+    if (!window.appState.roomCode) {
+      return window.showToast('Please create or join a session first.', 'warning');
     }
 
     try {
@@ -273,22 +302,60 @@ function initScreenShare() {
         audio: true
       });
 
-      localScreenStream.getTracks().forEach((track) => {
-        pc.addTrack(track, localScreenStream);
-        track.onended = stopScreenShare;
-      });
+      const pc = window.getPeerConnection();
+      if (pc) {
+        localScreenStream.getTracks().forEach((track) => {
+          pc.addTrack(track, localScreenStream);
+          track.onended = stopScreenShare;
+        });
+
+        // Create new renegotiation offer
+        try {
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          window.sendControlMessage({
+            type: 'signal',
+            data: { sdp: offer }
+          });
+        } catch (e) {
+          console.warn('[Screen] WebRTC renegotiation offer skipped:', e.message);
+        }
+      }
+
+      // Hybrid Cloud Relay: Background frame capture for cellular/cross-network fallback
+      const hiddenVideo = document.createElement('video');
+      hiddenVideo.muted = true;
+      hiddenVideo.playsInline = true;
+      hiddenVideo.srcObject = localScreenStream;
+      hiddenVideo.play().catch(() => {});
+
+      const offscreenCanvas = document.createElement('canvas');
+      const offscreenCtx = offscreenCanvas.getContext('2d');
+
+      relayFrameTimer = setInterval(() => {
+        const activePc = window.getPeerConnection();
+        // If direct WebRTC video is connected, skip websocket frames
+        if (activePc && activePc.connectionState === 'connected') return;
+
+        if (hiddenVideo.videoWidth > 0 && hiddenVideo.videoHeight > 0) {
+          const scale = Math.min(1, 960 / hiddenVideo.videoWidth);
+          offscreenCanvas.width = Math.round(hiddenVideo.videoWidth * scale);
+          offscreenCanvas.height = Math.round(hiddenVideo.videoHeight * scale);
+          offscreenCtx.drawImage(hiddenVideo, 0, 0, offscreenCanvas.width, offscreenCanvas.height);
+          const frameData = offscreenCanvas.toDataURL('image/jpeg', 0.52);
+
+          if (window.sendControlMessage) {
+            window.sendControlMessage({
+              type: 'screen-frame',
+              frame: frameData
+            });
+          }
+        }
+      }, 100); // 10 fps fallback for smooth cellular streaming
 
       startBtn.style.display = 'none';
       stopBtn.style.display = 'inline-flex';
       window.showToast('Sharing screen to peer', 'success');
-
-      // Create new renegotiation offer
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      window.sendControlMessage({
-        type: 'signal',
-        data: { sdp: offer }
-      });
     } catch (err) {
       console.warn('Screen share cancelled:', err);
     }
@@ -297,14 +364,18 @@ function initScreenShare() {
   stopBtn?.addEventListener('click', stopScreenShare);
 
   function stopScreenShare() {
+    if (relayFrameTimer) {
+      clearInterval(relayFrameTimer);
+      relayFrameTimer = null;
+    }
     if (localScreenStream) {
       localScreenStream.getTracks().forEach((track) => track.stop());
       localScreenStream = null;
     }
-    const placeholder = document.getElementById('screenPlaceholder');
-    const screenWrapper = document.getElementById('screenWrapper');
     if (placeholder) placeholder.style.display = 'flex';
     if (screenWrapper) screenWrapper.classList.remove('streaming');
+    if (remoteVideo) remoteVideo.style.display = 'block';
+    if (relayScreenCanvas) relayScreenCanvas.style.display = 'none';
 
     if (startBtn) startBtn.style.display = 'inline-flex';
     if (stopBtn) stopBtn.style.display = 'none';
@@ -343,6 +414,7 @@ function createTouchRipple(clientX, clientY) {
 function initDirectTouch() {
   const touchBtn = document.getElementById('touchScreenBtn');
   const remoteVideo = document.getElementById('remoteVideo');
+  const relayScreenCanvas = document.getElementById('relayScreenCanvas');
   let directTouchActive = false;
 
   touchBtn?.addEventListener('click', () => {
@@ -351,18 +423,20 @@ function initDirectTouch() {
       touchBtn.classList.remove('btn-secondary');
       touchBtn.classList.add('btn-primary');
       if (remoteVideo) remoteVideo.style.cursor = 'crosshair';
+      if (relayScreenCanvas) relayScreenCanvas.style.cursor = 'crosshair';
       window.showToast('Direct Touch enabled: tap stream to click remote PC', 'success');
     } else {
       touchBtn.classList.remove('btn-primary');
       touchBtn.classList.add('btn-secondary');
       if (remoteVideo) remoteVideo.style.cursor = 'default';
+      if (relayScreenCanvas) relayScreenCanvas.style.cursor = 'default';
       window.showToast('Direct Touch disabled', 'info');
     }
   });
 
-  function triggerScreenClick(clientX, clientY, button = 'left') {
-    if (!directTouchActive || !remoteVideo) return;
-    const rect = remoteVideo.getBoundingClientRect();
+  function triggerScreenClick(clientX, clientY, button = 'left', targetEl) {
+    if (!directTouchActive || !targetEl) return;
+    const rect = targetEl.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return;
 
     const normX = (clientX - rect.left) / rect.width;
@@ -379,24 +453,27 @@ function initDirectTouch() {
     }
   }
 
-  remoteVideo?.addEventListener('click', (e) => {
-    if (directTouchActive) {
-      triggerScreenClick(e.clientX, e.clientY, 'left');
-    }
-  });
+  [remoteVideo, relayScreenCanvas].forEach((el) => {
+    if (!el) return;
+    el.addEventListener('click', (e) => {
+      if (directTouchActive) {
+        triggerScreenClick(e.clientX, e.clientY, 'left', el);
+      }
+    });
 
-  remoteVideo?.addEventListener('contextmenu', (e) => {
-    if (directTouchActive) {
-      e.preventDefault();
-      triggerScreenClick(e.clientX, e.clientY, 'right');
-    }
-  });
+    el.addEventListener('contextmenu', (e) => {
+      if (directTouchActive) {
+        e.preventDefault();
+        triggerScreenClick(e.clientX, e.clientY, 'right', el);
+      }
+    });
 
-  remoteVideo?.addEventListener('touchstart', (e) => {
-    if (directTouchActive && e.touches.length === 1) {
-      triggerScreenClick(e.touches[0].clientX, e.touches[0].clientY, 'left');
-    }
-  }, { passive: true });
+    el.addEventListener('touchstart', (e) => {
+      if (directTouchActive && e.touches.length === 1) {
+        triggerScreenClick(e.touches[0].clientX, e.touches[0].clientY, 'left', el);
+      }
+    }, { passive: true });
+  });
 }
 
 // ------------------------------------------

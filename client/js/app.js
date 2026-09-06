@@ -108,7 +108,8 @@ function updateStatusBadges() {
   if (badgeP2P) {
     if (window.appState.peerConnected) {
       badgeP2P.className = 'status-badge connected';
-      badgeP2P.innerHTML = '<span class="status-dot"></span> <span class="badge-text">Device: Connected</span>';
+      const modeLabel = window.appState.connectionMode === 'relay' ? 'Cloud Relay' : 'Direct Link';
+      badgeP2P.innerHTML = `<span class="status-dot"></span> <span class="badge-text">Device: ${modeLabel}</span>`;
     } else {
       badgeP2P.className = 'status-badge disconnected';
       badgeP2P.innerHTML = '<span class="status-dot"></span> <span class="badge-text">Device: Waiting</span>';

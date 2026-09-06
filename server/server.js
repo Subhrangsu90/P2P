@@ -370,6 +370,57 @@ wss.on('connection', (ws) => {
         break;
       }
 
+      // Hybrid Cloud Relay: Forward control commands and clipboard when WebRTC direct link is blocked
+      case 'relay-message': {
+        if (!ws.roomCode || !rooms.has(ws.roomCode)) return;
+        const room = rooms.get(ws.roomCode);
+        const targets = ws.isHost ? room.viewers : (room.host ? [room.host] : []);
+        targets.forEach((target) => {
+          if (target && target !== ws && target.readyState === WebSocket.OPEN) {
+            target.send(JSON.stringify({
+              type: 'relayed-message',
+              senderPeerId: ws.peerId,
+              payload: msg.payload
+            }));
+          }
+        });
+        break;
+      }
+
+      // Hybrid Cloud Relay: Forward screen frames across cellular CGNAT networks
+      case 'screen-frame': {
+        if (!ws.roomCode || !rooms.has(ws.roomCode) || !ws.isHost) return;
+        const room = rooms.get(ws.roomCode);
+        room.viewers.forEach((viewer) => {
+          if (viewer && viewer.readyState === WebSocket.OPEN) {
+            viewer.send(JSON.stringify({
+              type: 'screen-frame',
+              senderPeerId: ws.peerId,
+              frame: msg.frame
+            }));
+          }
+        });
+        break;
+      }
+
+      // Hybrid Cloud Relay: Forward file chunks across cellular CGNAT networks
+      case 'relay-file-chunk': {
+        if (!ws.roomCode || !rooms.has(ws.roomCode)) return;
+        const room = rooms.get(ws.roomCode);
+        const targets = ws.isHost ? room.viewers : (room.host ? [room.host] : []);
+        targets.forEach((target) => {
+          if (target && target !== ws && target.readyState === WebSocket.OPEN) {
+            target.send(JSON.stringify({
+              type: 'relayed-file-chunk',
+              senderPeerId: ws.peerId,
+              chunk: msg.chunk,
+              meta: msg.meta
+            }));
+          }
+        });
+        break;
+      }
+
       case 'leave-room': {
         if (ws.roomCode && rooms.has(ws.roomCode)) {
           const room = rooms.get(ws.roomCode);

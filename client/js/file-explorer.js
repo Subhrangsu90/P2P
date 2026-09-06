@@ -113,6 +113,31 @@ async function sendFilesQueue(files) {
   }
 }
 
+function arrayBufferToBase64(buffer) {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return window.btoa(binary);
+}
+
+function base64ToArrayBuffer(base64) {
+  const binary_string = window.atob(base64);
+  const len = binary_string.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binary_string.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+window.handleIncomingFileChunkRelayed = (base64Chunk) => {
+  const buffer = base64ToArrayBuffer(base64Chunk);
+  handleIncomingFileChunk(buffer);
+};
+
 async function sendSingleFile(file) {
   if (!window.appState.localPermissions.fileTransfer) {
     return window.showToast('File transfer is disabled in your Privacy Settings.', 'warning');
@@ -122,8 +147,10 @@ async function sendSingleFile(file) {
   }
 
   const dc = window.getDataChannel();
-  if (!dc || dc.readyState !== 'open') {
-    return window.showToast('P2P Connection not open yet.', 'error');
+  const isP2P = dc && dc.readyState === 'open';
+
+  if (!isP2P && !window.appState.peerConnected) {
+    return window.showToast('Device connection not active yet.', 'error');
   }
 
   window.showToast(`Sending: ${file.name}`, 'file');
@@ -140,36 +167,59 @@ async function sendSingleFile(file) {
   let offset = 0;
   transferStartTime = Date.now();
 
-  dc.bufferedAmountLowThreshold = 64 * 1024; // 64KB threshold
+  if (isP2P) {
+    dc.bufferedAmountLowThreshold = 64 * 1024; // 64KB threshold
 
-  return new Promise((resolve) => {
-    function sendChunks() {
-      while (offset < buffer.byteLength) {
-        if (dc.bufferedAmount > 256 * 1024) {
-          // Pause and wait for buffer drain
-          dc.onbufferedamountlow = () => {
-            dc.onbufferedamountlow = null;
-            sendChunks();
-          };
-          return;
+    return new Promise((resolve) => {
+      function sendChunks() {
+        while (offset < buffer.byteLength) {
+          if (dc.bufferedAmount > 256 * 1024) {
+            // Pause and wait for buffer drain
+            dc.onbufferedamountlow = () => {
+              dc.onbufferedamountlow = null;
+              sendChunks();
+            };
+            return;
+          }
+
+          const chunk = buffer.slice(offset, offset + CHUNK_SIZE);
+          dc.send(chunk);
+          offset += chunk.byteLength;
+
+          const pct = Math.round((offset / buffer.byteLength) * 100);
+          updateProgress(pct, offset, buffer.byteLength);
         }
 
-        const chunk = buffer.slice(offset, offset + CHUNK_SIZE);
-        dc.send(chunk);
-        offset += chunk.byteLength;
-
-        const pct = Math.round((offset / buffer.byteLength) * 100);
-        updateProgress(pct, offset, buffer.byteLength);
+        window.sendControlMessage({ type: 'file-end' });
+        hideProgress();
+        window.showToast(`Sent: ${file.name}`, 'success');
+        resolve();
       }
 
-      window.sendControlMessage({ type: 'file-end' });
-      hideProgress();
-      window.showToast(`Sent: ${file.name}`, 'success');
-      resolve();
+      sendChunks();
+    });
+  } else {
+    // Cloud Relay mode chunk transmission
+    const RELAY_CHUNK_SIZE = 32 * 1024;
+    while (offset < buffer.byteLength) {
+      const chunk = buffer.slice(offset, offset + RELAY_CHUNK_SIZE);
+      const base64Chunk = arrayBufferToBase64(chunk);
+      window.sendControlMessage({
+        type: 'relay-file-chunk',
+        chunk: base64Chunk
+      });
+      offset += chunk.byteLength;
+
+      const pct = Math.round((offset / buffer.byteLength) * 100);
+      updateProgress(pct, offset, buffer.byteLength);
+      // Small 12ms delay between chunks to prevent WebSocket backpressure
+      await new Promise((r) => setTimeout(r, 12));
     }
 
-    sendChunks();
-  });
+    window.sendControlMessage({ type: 'file-end' });
+    hideProgress();
+    window.showToast(`Sent: ${file.name}`, 'success');
+  }
 }
 
 // ------------------------------------------
