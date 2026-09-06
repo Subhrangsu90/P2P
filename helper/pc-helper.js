@@ -390,13 +390,26 @@ function connectToCloudRelay(code) {
   });
 }
 
-// Auto-start cloud link if code passed as argument, or prompt interactively
-if (targetRoomCode) {
-  connectToCloudRelay(targetRoomCode);
+function getClipboardCode() {
+  if (process.platform !== 'win32') return null;
+  try {
+    const text = execSync('powershell -NoProfile -Command "Get-Clipboard"', { encoding: 'utf8', timeout: 1800 }).trim();
+    const match = text.match(/\b([a-fA-F0-9]{6})\b/);
+    if (match) return match[1].toLowerCase();
+  } catch (e) {}
+  return null;
+}
+
+// Auto-start cloud link: from command line argument, or automatically from Windows clipboard
+const autoDetectedCode = targetRoomCode || getClipboardCode();
+
+if (autoDetectedCode) {
+  console.log(`📋 Auto-detected session code: [${autoDetectedCode.toUpperCase()}]`);
+  connectToCloudRelay(autoDetectedCode);
 } else if (process.stdin.isTTY) {
   const readline = require('readline');
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  rl.question('👉 Enter your 6-character Connection Code (e.g. from browser on PC): ', (answer) => {
+  rl.question('👉 Enter your 6-character Connection Code (or press Enter for local dev): ', (answer) => {
     const code = answer.trim();
     if (code) {
       connectToCloudRelay(code);
@@ -405,6 +418,8 @@ if (targetRoomCode) {
     }
     rl.close();
   });
+} else {
+  console.log('Running in local loopback mode (ws://127.0.0.1:8081).');
 }
 
 process.on('SIGINT', () => {

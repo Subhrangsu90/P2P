@@ -538,6 +538,22 @@ server.listen(PORT, '0.0.0.0', () => {
     });
   }
   console.log('====================================================');
+
+  // Automatically start PC Native Agent when running on local Windows
+  if (process.platform === 'win32' && !process.env.RENDER && !process.env.PORT) {
+    try {
+      const helperScript = path.join(__dirname, '..', 'helper', 'pc-helper.js');
+      if (fs.existsSync(helperScript)) {
+        const { spawn } = require('child_process');
+        const helperProc = spawn(process.execPath, [helperScript], {
+          stdio: 'inherit',
+          env: { ...process.env, HELPER_LOCAL_AUTO: '1' }
+        });
+        helperProc.on('error', (e) => console.warn('Local agent notice:', e.message));
+        console.log('🤖 PC Native Agent auto-started in background.');
+      }
+    } catch (e) {}
+  }
 });
 
 module.exports = { server, wss, turnServer };

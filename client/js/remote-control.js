@@ -7,8 +7,7 @@ let helperWs = null;
 // ------------------------------------------
 // Local PC Helper Connection (ws://127.0.0.1:8081)
 // ------------------------------------------
-let helperRetries = 0;
-const MAX_HELPER_RETRIES = 1;
+let helperRetryTimer = null;
 
 function connectLocalHelper() {
   // Mobile devices are controllers/viewers; they never run the Windows PC native helper
@@ -23,7 +22,7 @@ function connectLocalHelper() {
     return;
   }
 
-  if (helperRetries >= MAX_HELPER_RETRIES) {
+  if (helperWs && (helperWs.readyState === WebSocket.OPEN || helperWs.readyState === WebSocket.CONNECTING)) {
     return;
   }
 
@@ -31,7 +30,6 @@ function connectLocalHelper() {
     helperWs = new WebSocket('ws://127.0.0.1:8081');
 
     helperWs.onopen = () => {
-      helperRetries = 0;
       window.appState.helperConnected = true;
       window.updateStatusBadges();
       window.showToast('Connected to local PC Agent', 'success');
@@ -41,7 +39,12 @@ function connectLocalHelper() {
     helperWs.onclose = () => {
       window.appState.helperConnected = false;
       window.updateStatusBadges();
-      helperRetries++;
+      if (!helperRetryTimer) {
+        helperRetryTimer = setTimeout(() => {
+          helperRetryTimer = null;
+          connectLocalHelper();
+        }, 3000);
+      }
     };
 
     helperWs.onerror = () => {
