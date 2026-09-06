@@ -1,153 +1,92 @@
-# RemoteLink — P2P Screen Share, Remote Control & File Transfer
+# RemoteLink — P2P Screen Share, Remote Control & File Explorer Hub
 
-**RemoteLink** connects your phone and PC directly over a private peer-to-peer (WebRTC) connection with zero intermediary servers touching your actual data.
+**RemoteLink** connects your mobile phone and PC directly over a private peer-to-peer (WebRTC) connection with a built-in TURN relay, native Windows input injection, and an interactive File Explorer hub. Zero intermediary servers touch your screen frames or files.
 
 ---
 
 ## 🌟 Key Features
 
-1. **Bidirectional Screen Sharing**:
-   - Stream PC screen to phone (view or monitor desktop on mobile).
-   - Stream phone screen to PC (presentations, app testing).
-   - Fullscreen and Picture-in-Picture support.
+1. **Interactive File Explorer Hub (No Direct Unwanted Downloads)**:
+   - **Catalog Received Files**: Shows file type icons, name, file size, timestamp, and PC storage status.
+   - **File Preview**: In-browser preview modal for images, code/text, video, audio, and PDF documents.
+   - **Native "Save As..."**: Uses the modern browser File System Access API (`showSaveFilePicker`) so you can select the destination folder and name via the Windows Explorer Save Dialog.
+   - **Windows Explorer Integration**:
+     - **📂 Reveal in Explorer**: Highlight the saved file in Windows File Explorer (`explorer.exe /select`).
+     - **⚡ Open File**: Launch the file directly with its default Windows application.
+     - **📂 Open Downloads Folder**: Quick 1-click access to your Downloads directory.
+   - **Multi-File Drag & Drop Sender**: Streamlined chunked sending with backpressure flow control, transfer speed (KB/s - MB/s), and progress bar.
 
-2. **Remote Control (Virtual Touchpad & Keyboard)**:
+2. **Bidirectional Screen Sharing**:
+   - Stream PC screen to phone (monitor desktop on mobile).
+   - Stream phone screen to PC (presentations, app testing).
+   - Fullscreen mode and Picture-in-Picture (PiP) support.
+
+3. **Remote Control (Virtual Touchpad & Keyboard)**:
    - **Trackpad Gestures on Phone**:
      - **1-finger swipe**: Smooth relative mouse cursor movement.
      - **1-finger tap**: Left Click.
      - **2-finger tap**: Right Click.
-     - **2-finger drag**: Vertical mouse scroll wheel.
-   - **On-Screen Keyboard & Hotkeys**: Send typed text or special keys (`Enter`, `Backspace`, `Tab`, `Esc`, `Arrow keys`, `Space`) directly to PC.
-   - Powered by a native Windows PC Helper (`pc-helper.js`) using high-speed OS APIs (no sluggish lag, zero native compilation issues).
+     - **2-finger drag**: Mouse scroll wheel.
+   - **Quick Windows Hotkeys**: `Win+D`, `Alt+Tab`, `Ctrl+Shift+Esc` (Task Manager), `Enter`, `Backspace`, `Esc`, `Space`, `F5`, `F11`.
+   - **Text Injection**: Type or paste text on mobile to type directly onto the PC.
 
-3. **Direct P2P File Transfer**:
-   - Transfer files of any size directly between devices over WebRTC `RTCDataChannel`.
-   - **Chunked streaming** (16 KB chunks) with backpressure handling (`bufferedAmount` check) to prevent browser buffer overloads.
-   - Live progress bar, transfer stats, and automatic browser download.
-   - Optional automatic saving to the PC's `Downloads` folder when the PC Helper is running.
+4. **Built-in TURN Relay Server**:
+   - Embedded `node-turn` server running on port `3478`.
+   - Automatically handles NAT traversal when Chrome hides local IPs behind mDNS (`.local` addresses).
 
-4. **Privacy-First Permission Toggles**:
-   - Each device maintains its own permission switches:
-     - `Allow Screen Share`
-     - `Allow Remote Control`
-     - `Allow File Transfer`
-   - **Local enforcement**: Regardless of what the other device requests, your local browser strictly blocks unauthorized actions before execution.
-   - Live permission status synchronization displays the peer's capabilities in real time.
+5. **Privacy-First Permission Toggles**:
+   - Granular on/off switches for Screen Share, Remote Control, and File Transfer.
+   - Local enforcement: Your browser blocks unauthorized commands before they execute.
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ Project Architecture
 
 ```
-[Phone Webapp] ◄──────────────► [Signaling Server] ◄──────────────► [PC Webapp]
-      │                                                                   ▲
-      │                                                                   │ Local WebSocket
-      │                        WebRTC Direct P2P                          ▼ (127.0.0.1:8081)
-      └────────────────────────────────────────────────────────► [PC Native Helper]
-                         • Screen Frames (Video)                    • Win32 Mouse
-                         • Control Commands (Touchpad/Keys)         • Win32 Keyboard
-                         • File Chunks (Binary)                     • Filesystem Save
-```
-
-- **Signaling Server (`server.js`)**: Runs on port `8080`. Serves the web app and exchanges initial WebRTC handshakes (SDP offer/answer and ICE candidates). **Never sees screen frames, files, or keystrokes.**
-- **Web App (`index.html`)**: Runs in modern web browsers on both PC and mobile.
-- **PC Helper (`pc-helper.js`)**: A lightweight Node.js daemon running locally on the PC on loopback (`127.0.0.1:8081`). Connects to the PC browser tab to simulate Windows mouse movements and keystrokes natively.
-
----
-
-## 🚀 Step-by-Step Setup Guide
-
-### Prerequisites
-- [Node.js](https://nodejs.org/) (v16 or newer installed on your PC).
-- Both PC and Phone connected to the same local Wi-Fi network (or reachable over the network).
-
----
-
-### Step 1: Install Dependencies
-Open a terminal in the project directory:
-```bash
-npm install
+P2P/
+├── client/                     # Modern modular web frontend
+│   ├── index.html              # Responsive tabbed user interface
+│   ├── css/
+│   │   └── style.css           # Glassmorphic dark design system
+│   └── js/
+│       ├── app.js              # State manager, tabs & toast notifications
+│       ├── webrtc.js           # Dynamic ICE/TURN, WebRTC P2P & DataChannel
+│       ├── file-explorer.js    # File chunking, File Explorer Hub & preview modal
+│       └── remote-control.js   # Touchpad gestures, hotkeys & screen share
+├── server/
+│   └── server.js               # Signaling server, TURN relay & static asset server
+├── helper/
+│   ├── pc-helper.js            # Native Windows companion (Explorer & input injection)
+│   ├── InputDriver.cs          # C# Windows input simulation source
+│   └── InputDriver.exe         # Pre-compiled high-performance binary
+├── server.js                   # Root launcher for npm start
+├── pc-helper.js                # Root launcher for npm run helper
+├── package.json                # Project dependencies & scripts
+└── README.md
 ```
 
 ---
 
-### Step 2: Start the Signaling & Web Server
+## 🚀 How to Run
+
+### 1. Start the Server & TURN Relay
+In a terminal:
 ```bash
 npm start
 ```
-You will see output showing your local addresses:
-```text
-====================================================
-🚀 Signaling & Web Server is running on port 8080
-💻 Local:   http://localhost:8080
-📱 Network: http://192.168.1.5:8080  (Open this on your phone)
-====================================================
+- Web dashboard: `http://localhost:8080`
+- Mobile network address: `http://<your-lan-ip>:8080` (printed in terminal)
+- TURN relay: Port `3478`
+
+### 2. Start the Windows PC Helper
+In a second terminal:
+```bash
+npm run helper
 ```
+- Helper runs on `ws://127.0.0.1:8081` to enable Windows Explorer actions and mouse/keyboard injection.
 
----
-
-### Step 3: Open the Web App on Both Devices
-1. **On your PC**: Open your browser and go to:
-   ```text
-   http://localhost:8080
-   ```
-2. **On your Phone**: Open your phone browser (Chrome, Safari, Firefox) and enter the Network URL printed in the terminal (e.g., `http://192.168.1.5:8080`).
-
----
-
-### Step 4: Pair the Devices
-1. On your **PC**, click **"Connect Server"**, then click **"➕ Create Room (PC / Host)"**.
-2. A 6-character room code will appear (e.g. `a1b2c3`).
-3. On your **Phone**, click **"Connect Server"**, enter the 6-character room code in the input box, and tap **"Join Room"**.
-4. Both devices will display **"P2P: Connected"** with a green badge once the WebRTC handshake completes!
-
----
-
-### Step 5: (Optional but Recommended) Start the PC Helper for OS Mouse/Keyboard Control
-To enable real OS-level mouse cursor control and keystrokes on Windows:
-1. Open a second terminal window on your PC.
-2. Run:
-   ```bash
-   npm run helper
-   ```
-3. The PC browser tab will automatically show **"Helper: Active (OS Control)"** in the top right header badge.
-4. Now, swiping on your phone's **Remote Control** touchpad moves your actual PC mouse cursor!
-
----
-
-## 🎮 How to Use Each Feature
-
-### 1. View PC Screen on Phone
-1. On your PC, go to the **📺 Screen View** tab and click **"📤 Share My Screen"**.
-2. Choose entire screen or a specific window.
-3. The phone displays the video stream in real-time. Tap **"⛶ Fullscreen"** on the phone for full-display viewing.
-
-### 2. Control PC Mouse & Keyboard from Phone
-1. On your phone, switch to the **🎮 Remote Control** tab.
-2. **Move Cursor**: Drag one finger anywhere in the trackpad surface.
-3. **Left Click**: Tap once on the trackpad or press the "Left Click" button.
-4. **Right Click**: Tap with two fingers or press the "Right Click" button.
-5. **Scroll**: Drag up or down with two fingers.
-6. **Typing**: Type into the text input and tap "Send Text", or tap quick hotkey buttons (`Enter`, `Backspace`, `Esc`, arrow keys).
-
-### 3. Send Files (Either Direction)
-1. Go to the **📁 File Transfer** tab on either device.
-2. Drag and drop a file or tap to select one from your device.
-3. The file is split into 16 KB chunks and streamed over the peer-to-peer data channel.
-4. The receiving device displays a progress bar and automatically downloads the completed file.
-5. If the PC Helper is running on the receiving PC, the file is also saved directly into your `Downloads` directory.
-
-### 4. Privacy Control
-1. Switch to the **🛡️ Privacy Toggles** tab.
-2. Independently toggle on or off:
-   - **Allow Screen Share**
-   - **Allow Remote Control**
-   - **Allow File Transfer**
-3. If you turn off "Allow Remote Control", incoming mouse movements and keystrokes will be blocked immediately.
-
----
-
-## 🔒 Security & Privacy Notes
-- **Direct P2P**: Video streams and files travel directly between your phone and PC over WebRTC. Nothing is stored on any cloud server.
-- **Local Loopback Helper**: `pc-helper.js` listens only on `127.0.0.1:8081` (localhost only), preventing unauthorized network access from outside your PC.
-- **Single-Use Rooms**: Room codes are random and allow a maximum of 2 devices per session.
+### 3. Connect Devices
+1. Open `http://localhost:8080` on your PC.
+2. Click **Generate Room Code** (e.g. `a1b2c3`) or click **QR Code**.
+3. Open the network URL on your phone and enter the 6-character code (or scan the QR code).
+4. Direct WebRTC P2P connection will establish instantly!

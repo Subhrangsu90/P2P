@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+  <title>RemoteLink — P2P Remote Control & File Explorer Hub</title>
+  
+  <!-- Modern Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="css/style.css?v=3.0">
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- Top Header & Live Status -->
+    <header>
+      <div class="brand">
+        <div class="brand-icon">⚡</div>
+        <div class="brand-text">
+          <h1>RemoteLink</h1>
+          <p>P2P Control & File Hub</p>
+        </div>
+      </div>
+
+      <div class="header-status-group">
+        <div id="badgeSignaling" class="status-badge disconnected">
+          <span class="status-dot"></span> <span class="badge-text">Server: Offline</span>
+        </div>
+        <div id="badgeP2P" class="status-badge disconnected">
+          <span class="status-dot"></span> <span class="badge-text">P2P: Waiting</span>
+        </div>
+        <div id="badgeHelper" class="status-badge">
+          <span class="status-dot"></span> <span class="badge-text">Helper: Inactive</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+      <button class="nav-tab-btn active" data-tab="tab-overview">
+        <span class="tab-icon">📡</span> <span class="tab-label">Pair</span>
+      </button>
+      <button class="nav-tab-btn" data-tab="tab-screen">
+        <span class="tab-icon">🖥️</span> <span class="tab-label">Screen</span>
+      </button>
+      <button class="nav-tab-btn" data-tab="tab-control">
+        <span class="tab-icon">🎮</span> <span class="tab-label">Control</span>
+      </button>
+      <button class="nav-tab-btn" data-tab="tab-files">
+        <span class="tab-icon">📁</span> <span class="tab-label">Files</span>
+      </button>
+      <button class="nav-tab-btn" data-tab="tab-privacy">
+        <span class="tab-icon">🛡️</span> <span class="tab-label">Privacy</span>
+      </button>
+    </nav>
+
+    <!-- ==========================================
+         TAB 1: PAIRING & OVERVIEW
+         ========================================== -->
+    <section id="tab-overview" class="tab-panel active">
+      <div class="pairing-grid">
+        
+        <!-- Create Room Box -->
+        <div class="pairing-box">
+          <h3>Create New Session</h3>
+          <p>Generate a secure room code to pair this device with your phone or PC over direct WebRTC.</p>
+          <button id="createRoomBtn" class="btn btn-primary">
+            ✨ Generate Room Code
+          </button>
+        </div>
+
+        <!-- Join Room Box -->
+        <div class="pairing-box">
+          <h3>Join Existing Session</h3>
+          <p>Enter the 6-character room code displayed on your other device.</p>
+          <div class="input-row">
+            <input type="text" id="joinRoomInput" placeholder="e.g. a1b2c3" maxlength="10" />
+            <button id="joinRoomBtn" class="btn btn-secondary">
+              🔗 Join
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Active Room Status Card -->
+      <div id="activeRoomCard" class="card" style="display: none;">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-title-icon">🔑</span>
+            <span>Active Room Code</span>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button id="copyRoomBtn" class="btn btn-secondary btn-sm">📋 Copy Code</button>
+            <button id="qrBtn" class="btn btn-primary btn-sm">📱 QR Code</button>
+          </div>
+        </div>
+        <div class="room-display">
+          <span id="activeRoomCode" class="room-code-text">------</span>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">Share this with your second device</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         TAB 2: SCREEN STREAM
+         ========================================== -->
+    <section id="tab-screen" class="tab-panel">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-title-icon">🖥️</span>
+            <span>Live Display Stream</span>
+          </div>
+          <div class="screen-toolbar">
+            <button id="startShareBtn" class="btn btn-primary btn-sm">📺 Share My Screen</button>
+            <button id="stopShareBtn" class="btn btn-rose btn-sm" style="display: none;">⏹️ Stop Sharing</button>
+            <button id="toggleFullscreenBtn" class="btn btn-secondary btn-sm">⛶ Fullscreen</button>
+            <button id="pipBtn" class="btn btn-secondary btn-sm">🔲 Picture-in-Picture</button>
+          </div>
+        </div>
+
+        <div id="screenWrapper" class="screen-wrapper">
+          <div id="screenPlaceholder" class="screen-placeholder">
+            <span class="screen-placeholder-icon">📺</span>
+            <h3>No Screen Stream Active</h3>
+            <p>Connect to a peer and click <b>Share My Screen</b> on your PC, or stream from mobile.</p>
+          </div>
+          <video id="remoteVideo" autoplay playsinline></video>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         TAB 3: REMOTE CONTROL & TOUCHPAD
+         ========================================== -->
+    <section id="tab-control" class="tab-panel">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-title-icon">🖱️</span>
+            <span>Virtual Touchpad & Gestures</span>
+          </div>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">1-Finger Move • Tap Click • 2-Finger Scroll</span>
+        </div>
+
+        <!-- Touch Surface -->
+        <div id="touchpad" class="touchpad-surface">
+          <span style="font-size: 2rem; opacity: 0.35;">🖐️</span>
+          <span>Slide finger to move mouse cursor</span>
+          <span style="font-size: 0.75rem; color: var(--text-dim);">Tap for left click • Two-finger tap for right click</span>
+        </div>
+
+        <!-- Mouse Buttons -->
+        <div class="mouse-click-bar">
+          <button id="btnMouseLeft" class="mouse-click-btn">🖱️ Left Click</button>
+          <button id="btnMouseRight" class="mouse-click-btn">🖱️ Right Click</button>
+        </div>
+
+        <!-- Quick Hotkeys Bar -->
+        <div class="card-header" style="margin-top: 8px;">
+          <div class="card-title" style="font-size: 0.95rem;">
+            <span>⌨️ Quick Windows Shortcuts</span>
+          </div>
+        </div>
+        <div class="hotkeys-grid">
+          <button class="hotkey-btn" data-key="Win+D">Win + D (Desktop)</button>
+          <button class="hotkey-btn" data-key="Alt+Tab">Alt + Tab</button>
+          <button class="hotkey-btn" data-key="Ctrl+Shift+Esc">Task Manager</button>
+          <button class="hotkey-btn" data-key="Enter">Enter ↵</button>
+          <button class="hotkey-btn" data-key="Backspace">⌫ Backspace</button>
+          <button class="hotkey-btn" data-key="Escape">Esc</button>
+          <button class="hotkey-btn" data-key="Space">Space</button>
+          <button class="hotkey-btn" data-key="F5">F5 Refresh</button>
+          <button class="hotkey-btn" data-key="F11">F11 Fullscreen</button>
+        </div>
+
+        <!-- Direct Keystroke / Text Injection -->
+        <div class="card-header" style="margin-top: 8px;">
+          <div class="card-title" style="font-size: 0.95rem;">
+            <span>💬 Type Text onto Remote PC</span>
+          </div>
+        </div>
+        <div class="input-row">
+          <input type="text" id="keyboardInput" placeholder="Type text or paste URL to send directly..." />
+          <button id="btnSendText" class="btn btn-primary">
+            📤 Send
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         TAB 4: FILE EXPLORER HUB
+         ========================================== -->
+    <section id="tab-files" class="tab-panel">
+      
+      <!-- Upload / Drop Zone -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-title-icon">📤</span>
+            <span>Send Files to Peer</span>
+          </div>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Direct P2P • Chunked transfer • No size limit</span>
+        </div>
+
+        <input type="file" id="filePicker" multiple style="display: none;" />
+        <div id="dropzone" class="dropzone">
+          <span class="dropzone-icon">☁️</span>
+          <span class="dropzone-text">Click or drag & drop files here to send</span>
+          <span class="dropzone-hint">Supports images, documents, videos, archives, and code</span>
+        </div>
+
+        <!-- Transfer Progress Bar -->
+        <div id="transferProgressCard" class="transfer-progress-card">
+          <div class="progress-header">
+            <span id="progressFileName">Transferring file...</span>
+            <span id="progressPercent">0%</span>
+          </div>
+          <div class="progress-track">
+            <div id="progressFill" class="progress-fill"></div>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-dim);">
+            <span>Direct WebRTC DataChannel</span>
+            <span id="progressSpeed">0 KB/s</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Received Files Explorer Hub -->
+      <div class="card">
+        <div class="card-header files-explorer-header">
+          <div class="card-title">
+            <span class="card-title-icon">📥</span>
+            <span>Received Files Hub</span>
+          </div>
+          <div class="explorer-controls">
+            <button id="openDownloadsFolderBtn" class="btn btn-secondary btn-sm" title="Open Downloads folder in Windows Explorer">
+              📂 Open Downloads Folder
+            </button>
+          </div>
+        </div>
+
+        <!-- Files List View -->
+        <div id="filesList" class="files-list">
+          <div class="empty-explorer">
+            <span class="empty-explorer-icon">📂</span>
+            <span>No files received yet. Drag & drop above to transfer peer-to-peer.</span>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ==========================================
+         TAB 5: PRIVACY & SETTINGS
+         ========================================== -->
+    <section id="tab-privacy" class="tab-panel">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-title-icon">🛡️</span>
+            <span>Privacy & Feature Permissions</span>
+          </div>
+          <span style="font-size: 0.75rem; color: var(--emerald);">Real-time Sync</span>
+        </div>
+
+        <div class="toggle-row">
+          <div class="toggle-details">
+            <span class="toggle-title">Screen Sharing Access</span>
+            <span class="toggle-desc">Permit outgoing video capture & streaming to the remote peer</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="toggleScreen" checked />
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="toggle-row">
+          <div class="toggle-details">
+            <span class="toggle-title">Remote Control & Input Simulation</span>
+            <span class="toggle-desc">Allow remote device to control mouse movements, clicks, and keystrokes</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="toggleControl" checked />
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="toggle-row">
+          <div class="toggle-details">
+            <span class="toggle-title">File Transfer Permission</span>
+            <span class="toggle-desc">Allow receiving and sending binary files over the peer-to-peer data channel</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="toggleFiles" checked />
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- QR Code Modal -->
+  <div id="qrModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 360px; text-align: center;">
+      <div class="modal-header">
+        <h3 style="font-size: 1rem;">📱 Scan to Connect Phone</h3>
+        <button id="qrCloseBtn" class="btn btn-secondary btn-sm">✕</button>
+      </div>
+      <div class="modal-body">
+        <img id="qrImg" alt="QR Code" style="width: 200px; height: 200px; border-radius: 12px; background: #fff; padding: 8px;" />
+        <p style="font-size: 0.8rem; color: var(--text-muted);">
+          Scan with your phone camera or QR reader to join this room instantly.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- File Preview Modal -->
+  <div id="previewModal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="previewModalTitle" style="font-size: 1rem;">File Preview</h3>
+        <button id="previewCloseBtn" class="btn btn-secondary btn-sm">✕</button>
+      </div>
+      <div id="previewModalBody" class="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container"></div>
+
+  <!-- Modular Scripts -->
+  <script src="js/app.js"></script>
+  <script src="js/webrtc.js"></script>
+  <script src="js/remote-control.js"></script>
+  <script src="js/file-explorer.js"></script>
+
+</body>
+</html>

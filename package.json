@@ -1,12 +1,24 @@
 {
-  "name": "signaling-server",
-  "version": "1.0.0",
-  "description": "Minimal WebRTC signaling server for phone/PC pairing",
-  "main": "server.js",
+  "name": "remotelink-p2p",
+  "version": "1.1.0",
+  "description": "High-performance P2P remote control, screen streaming, and file explorer hub over WebRTC with built-in TURN relay",
+  "main": "server/server.js",
   "scripts": {
-    "start": "node server.js",
-    "helper": "node pc-helper.js"
+    "start": "node server/server.js",
+    "helper": "node helper/pc-helper.js"
   },
+  "keywords": [
+    "webrtc",
+    "p2p",
+    "remote-control",
+    "screen-sharing",
+    "file-transfer",
+    "file-explorer",
+    "turn-server",
+    "signaling"
+  ],
+  "author": "",
+  "license": "MIT",
   "dependencies": {
     "node-turn": "^0.0.6",
     "ws": "^8.16.0"
