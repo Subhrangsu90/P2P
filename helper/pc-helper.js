@@ -296,16 +296,26 @@ function handleHelperCommand(msg, sendResponse) {
 // ------------------------------------------
 // 1. Local Loopback WebSocket Server (for dev: ws://127.0.0.1:8081)
 // ------------------------------------------
-const wss = new WebSocket.Server({ port: HELPER_PORT, host: '127.0.0.1' });
+let wss = null;
+try {
+  wss = new WebSocket.Server({ port: HELPER_PORT, host: '127.0.0.1' });
 
-console.log('====================================================');
-console.log(`🖥️  RemoteLink PC Helper initialized`);
-console.log(`Display Resolution: ${screenResolution.width}x${screenResolution.height}`);
-console.log(`Local Loopback: ws://127.0.0.1:${HELPER_PORT}`);
-console.log('====================================================');
+  wss.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.log(`ℹ️ Local port ${HELPER_PORT} is already in use by another instance.`);
+    } else {
+      console.warn('⚠️ Local helper server notice:', err.message);
+    }
+  });
 
-wss.on('connection', (ws) => {
-  console.log('🔗 Local browser dashboard connected to PC Helper.');
+  console.log('====================================================');
+  console.log(`🖥️  RemoteLink PC Helper initialized`);
+  console.log(`Display Resolution: ${screenResolution.width}x${screenResolution.height}`);
+  console.log(`Local Loopback: ws://127.0.0.1:${HELPER_PORT}`);
+  console.log('====================================================');
+
+  wss.on('connection', (ws) => {
+    console.log('🔗 Local browser dashboard connected to PC Helper.');
 
   // Notify client of status
   ws.send(JSON.stringify({
@@ -327,6 +337,9 @@ wss.on('connection', (ws) => {
     console.log('🔌 Local browser dashboard disconnected from PC Helper.');
   });
 });
+} catch (err) {
+  console.log(`ℹ️ Local port ${HELPER_PORT} notice: ${err.message}`);
+}
 
 // ------------------------------------------
 // 2. Production Cloud Relay Client (Connect via Session Code)
