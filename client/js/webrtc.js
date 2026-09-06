@@ -10,22 +10,13 @@ let localStream = null;
 let isMakingOffer = false;
 let ignoreOffer = false;
 
-// Fallback ICE Servers with Global TURN Relay
+// Fallback ICE Servers (STUN)
 let rtcConfig = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:global.stun.twilio.com:3478' },
-    {
-      urls: [
-        'turn:openrelay.metered.ca:80',
-        'turn:openrelay.metered.ca:443',
-        'turn:openrelay.metered.ca:443?transport=tcp'
-      ],
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
-    }
+    { urls: 'stun:global.stun.twilio.com:3478' }
   ],
   iceCandidatePoolSize: 10
 };
@@ -197,7 +188,7 @@ function setupPeerConnection() {
       window.updateStatusBadges();
       stopTelemetryHUD();
       if (pc.connectionState === 'failed') {
-        window.showToast('Connection interrupted. Reconnecting...', 'warning');
+        window.showToast('Direct link failed. If connecting across mobile data (CGNAT), connect both devices to same Wi-Fi or add TURN credentials.', 'warning');
         restartIce();
       }
     }

@@ -114,7 +114,40 @@ function serveStaticFile(req, res) {
   });
 }
 
-const server = http.createServer((req, res) => {
+// Metered TURN credentials cache
+let cachedMeteredIce = null;
+let lastMeteredFetch = 0;
+
+async function fetchMeteredIce() {
+  const domain = process.env.METERED_DOMAIN;
+  const secretKey = process.env.METERED_SECRET_KEY || process.env.METERED_API_KEY;
+  if (!domain || !secretKey) return null;
+
+  // Cache for 20 minutes
+  if (cachedMeteredIce && (Date.now() - lastMeteredFetch < 20 * 60 * 1000)) {
+    return cachedMeteredIce;
+  }
+
+  try {
+    const formattedDomain = domain.includes('.') ? domain : `${domain}.metered.live`;
+    const apiUrl = `https://${formattedDomain}/api/v1/turn/credentials?secretKey=${secretKey}`;
+    const res = await fetch(apiUrl);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        cachedMeteredIce = data;
+        lastMeteredFetch = Date.now();
+        console.log('[TURN] Successfully fetched fresh Metered TURN credentials.');
+        return cachedMeteredIce;
+      }
+    }
+  } catch (err) {
+    console.warn('[TURN] Error fetching Metered credentials:', err.message);
+  }
+  return null;
+}
+
+const server = http.createServer(async (req, res) => {
   const reqUrl = req.url.split('?')[0];
 
   // Dynamic ICE config endpoint
@@ -122,22 +155,25 @@ const server = http.createServer((req, res) => {
     const host = req.headers.host?.split(':')[0] || 'localhost';
     const isLocalhost = host === 'localhost' || host === '127.0.0.1';
 
-    const iceServers = [
+    let iceServers = [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
       { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:global.stun.twilio.com:3478' },
-      // Production Global TURN Relay (Works over standard web ports 80 & 443 across cellular CGNAT/firewalls)
-      {
-        urls: [
-          'turn:openrelay.metered.ca:80',
-          'turn:openrelay.metered.ca:443',
-          'turn:openrelay.metered.ca:443?transport=tcp'
-        ],
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
-      }
+      { urls: 'stun:global.stun.twilio.com:3478' }
     ];
+
+    // Check if Metered TURN credentials are configured via environment variables
+    const meteredServers = await fetchMeteredIce();
+    if (meteredServers) {
+      iceServers = iceServers.concat(meteredServers);
+    } else if (process.env.TURN_URL) {
+      // Support custom TURN server via environment variables
+      iceServers.push({
+        urls: process.env.TURN_URL.split(',').map((u) => u.trim()),
+        username: process.env.TURN_USERNAME || '',
+        credential: process.env.TURN_CREDENTIAL || process.env.TURN_PASSWORD || ''
+      });
+    }
 
     // If running on local development machine, also append the local node-turn server
     if (isLocalhost) {
