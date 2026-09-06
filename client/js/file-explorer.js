@@ -2,11 +2,12 @@
  * RemoteLink Client — File Transfer & Interactive File Explorer Hub
  * -----------------------------------------------------------------
  * Replaces direct auto-download with an interactive Received Files Explorer:
- *  - Interactive file gallery with icons, sizes, and timestamps
+ *  - Interactive file gallery with sleek SVG icons, sizes, and timestamps
  *  - In-browser file preview (images, text/code, audio, video, pdf)
  *  - Native "Save As..." via File System Access API (showSaveFilePicker)
  *  - Native Windows File Explorer integration via PC Helper ("Reveal in Explorer", "Open File")
  *  - Drag & drop multi-file sender with backpressure flow control
+ *  - 100% SVG iconography, zero emojis
  */
 
 const CHUNK_SIZE = 16 * 1024; // 16 KB WebRTC data channel chunk
@@ -35,20 +36,44 @@ const previewModalTitle = document.getElementById('previewModalTitle');
 const previewModalBody = document.getElementById('previewModalBody');
 const previewCloseBtn = document.getElementById('previewCloseBtn');
 
-// Helper for file type icons
+// Helper for file type SVG icons (Zero emojis)
 function getFileIcon(fileName, mimeType = '') {
   const ext = fileName.split('.').pop().toLowerCase();
-  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'].includes(ext) || mimeType.startsWith('image/')) return '🖼️';
-  if (['mp4', 'mkv', 'webm', 'mov', 'avi'].includes(ext) || mimeType.startsWith('video/')) return '🎬';
-  if (['mp3', 'wav', 'ogg', 'm4a', 'flac'].includes(ext) || mimeType.startsWith('audio/')) return '🎵';
-  if (['pdf'].includes(ext) || mimeType === 'application/pdf') return '📕';
-  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return '📦';
-  if (['js', 'ts', 'html', 'css', 'json', 'py', 'cs', 'cpp', 'java', 'xml', 'md'].includes(ext)) return '💻';
-  if (['txt', 'log', 'csv'].includes(ext) || mimeType.startsWith('text/')) return '📄';
-  if (['doc', 'docx'].includes(ext)) return '📘';
-  if (['xls', 'xlsx'].includes(ext)) return '📊';
-  if (['ppt', 'pptx'].includes(ext)) return '📙';
-  return '📁';
+  
+  // Image
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'].includes(ext) || mimeType.startsWith('image/')) {
+    return `<svg class="file-type-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`;
+  }
+  // Video
+  if (['mp4', 'mkv', 'webm', 'mov', 'avi'].includes(ext) || mimeType.startsWith('video/')) {
+    return `<svg class="file-type-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>`;
+  }
+  // Audio
+  if (['mp3', 'wav', 'ogg', 'm4a', 'flac'].includes(ext) || mimeType.startsWith('audio/')) {
+    return `<svg class="file-type-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`;
+  }
+  // PDF
+  if (ext === 'pdf' || mimeType === 'application/pdf') {
+    return `<svg class="file-type-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg>`;
+  }
+  // Code
+  if (['js', 'ts', 'html', 'css', 'json', 'py', 'cs', 'cpp', 'c', 'java', 'xml', 'md', 'sql', 'sh'].includes(ext)) {
+    return `<svg class="file-type-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`;
+  }
+  // Archive
+  if (['zip', 'rar', '7z', 'tar', 'gz', 'bz2'].includes(ext)) {
+    return `<svg class="file-type-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>`;
+  }
+  // Spreadsheet / Data
+  if (['xls', 'xlsx', 'csv'].includes(ext)) {
+    return `<svg class="file-type-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>`;
+  }
+  // Document / Presentation
+  if (['doc', 'docx', 'txt', 'rtf', 'log', 'ppt', 'pptx'].includes(ext)) {
+    return `<svg class="file-type-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>`;
+  }
+  // Default File
+  return `<svg class="file-type-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>`;
 }
 
 function formatBytes(bytes) {
@@ -62,7 +87,7 @@ function formatBytes(bytes) {
 // ------------------------------------------
 // Sending Files (with Flow Control)
 // ------------------------------------------
-dropzone?.addEventListener('click', () => filePicker.click());
+dropzone?.addEventListener('click', () => filePicker?.click());
 filePicker?.addEventListener('change', (e) => {
   if (e.target.files.length > 0) {
     sendFilesQueue(Array.from(e.target.files));
@@ -101,7 +126,7 @@ async function sendSingleFile(file) {
     return window.showToast('P2P Connection not open yet.', 'error');
   }
 
-  window.showToast(`📤 Sending ${file.name}...`, 'file');
+  window.showToast(`Sending: ${file.name}`, 'file');
   showProgress(`Sending: ${file.name} (${formatBytes(file.size)})`);
 
   window.sendControlMessage({
@@ -139,7 +164,7 @@ async function sendSingleFile(file) {
 
       window.sendControlMessage({ type: 'file-end' });
       hideProgress();
-      window.showToast(`✅ Sent: ${file.name}`, 'success');
+      window.showToast(`Sent: ${file.name}`, 'success');
       resolve();
     }
 
@@ -156,7 +181,7 @@ function handleIncomingFileMeta(meta) {
       type: 'file-cancel',
       reason: 'Recipient has disabled file transfers.'
     });
-    window.showToast(`🛡️ Blocked file: "${meta.name}" (Privacy toggle OFF)`, 'warning');
+    window.showToast(`Blocked file: "${meta.name}" (Privacy toggle OFF)`, 'warning');
     return;
   }
 
@@ -217,7 +242,7 @@ function handleIncomingFileEnd() {
   }
 
   hideProgress();
-  window.showToast(`📁 File received: ${fileEntry.name}`, 'file');
+  window.showToast(`File received: ${fileEntry.name}`, 'file');
 
   incomingFileMeta = null;
   incomingChunks = [];
@@ -225,7 +250,7 @@ function handleIncomingFileEnd() {
 
 function handleIncomingFileCancel(reason) {
   hideProgress();
-  window.showToast(`❌ Transfer cancelled: ${reason || 'Remote peer cancelled'}`, 'warning');
+  window.showToast(`Transfer cancelled: ${reason || 'Remote peer cancelled'}`, 'warning');
   incomingFileMeta = null;
   incomingChunks = [];
 }
@@ -239,8 +264,12 @@ function renderReceivedFiles() {
   if (receivedFiles.length === 0) {
     filesList.innerHTML = `
       <div class="empty-explorer">
-        <span class="empty-explorer-icon">📂</span>
-        <span>No files received yet. Drag & drop above to transfer peer-to-peer.</span>
+        <div class="empty-explorer-icon">
+          <svg viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+          </svg>
+        </div>
+        <span>No files received yet. Drag &amp; drop files above to transfer.</span>
       </div>
     `;
     return;
@@ -257,30 +286,49 @@ function renderReceivedFiles() {
 
     item.innerHTML = `
       <div class="file-info">
-        <span class="file-icon">${icon}</span>
+        <div class="file-icon-box">
+          ${icon}
+        </div>
         <div class="file-meta">
           <span class="file-name" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span>
           <span class="file-sub">
             <span>${formatBytes(file.size)}</span>
-            <span>•</span>
+            <span class="file-dot">•</span>
             <span>${file.timestamp}</span>
-            ${file.savedPath ? `<span style="color: var(--emerald);">• Saved to PC</span>` : ''}
+            ${file.savedPath ? `<span class="file-saved-badge"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Saved to PC</span>` : ''}
           </span>
         </div>
       </div>
       <div class="file-actions">
         <button class="btn btn-secondary btn-sm" onclick="previewFile('${file.id}')" title="Preview file in browser">
-          👁️ Preview
+          <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+          <span>Preview</span>
         </button>
         <button class="btn btn-primary btn-sm" onclick="saveFileAs('${file.id}')" title="Save file to chosen folder">
-          💾 Save As...
+          <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          <span>Save As</span>
         </button>
         ${file.savedPath ? `
-          <button class="btn btn-emerald btn-sm" onclick="revealInExplorer('${file.id}')" title="Highlight in Windows Explorer">
-            📂 Reveal in Explorer
+          <button class="btn btn-secondary btn-sm" onclick="revealInExplorer('${file.id}')" title="Highlight in Windows Explorer">
+            <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            </svg>
+            <span>Reveal</span>
           </button>
           <button class="btn btn-secondary btn-sm" onclick="openFileNative('${file.id}')" title="Open with default Windows app">
-            ⚡ Open
+            <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+            <span>Open</span>
           </button>
         ` : ''}
       </div>
@@ -299,7 +347,10 @@ window.previewFile = function(fileId) {
   const file = receivedFiles.find((f) => f.id === fileId);
   if (!file) return;
 
-  previewModalTitle.textContent = `Preview: ${file.name}`;
+  if (previewModalTitle) {
+    previewModalTitle.textContent = `Preview: ${file.name}`;
+  }
+  if (!previewModalBody) return;
   previewModalBody.innerHTML = '';
 
   const ext = file.name.split('.').pop().toLowerCase();
@@ -341,24 +392,31 @@ window.previewFile = function(fileId) {
     iframe.style.width = '100%';
     iframe.style.height = '60vh';
     iframe.style.borderRadius = '8px';
+    iframe.style.border = '1px solid var(--border-card)';
     previewModalBody.appendChild(iframe);
   } else {
     previewModalBody.innerHTML = `
-      <div style="text-align: center; padding: 20px;">
-        <span style="font-size: 3rem;">${getFileIcon(file.name, file.mimeType)}</span>
-        <p style="margin-top: 12px; color: var(--text-muted);">
-          Direct preview is not supported for this file format.<br>Use <b>Save As...</b> or <b>Reveal in Explorer</b> to view on your device.
+      <div class="modal-unsupported-preview">
+        <div class="modal-unsupported-icon">
+          <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+        </div>
+        <p class="modal-unsupported-text">
+          Direct browser preview is not supported for this file type.<br>
+          Use <b>Save As</b> or <b>Reveal</b> to inspect with your native desktop applications.
         </p>
       </div>
     `;
   }
 
-  previewModal.classList.add('active');
+  previewModal?.classList.add('active');
 };
 
 previewCloseBtn?.addEventListener('click', () => {
-  previewModal.classList.remove('active');
-  previewModalBody.innerHTML = '';
+  previewModal?.classList.remove('active');
+  if (previewModalBody) previewModalBody.innerHTML = '';
 });
 
 // 2. Save As Dialog (Uses modern window.showSaveFilePicker if supported)
@@ -375,7 +433,7 @@ window.saveFileAs = async function(fileId) {
       const writable = await handle.createWritable();
       await writable.write(file.blob);
       await writable.close();
-      window.showToast(`Saved to selected folder!`, 'success');
+      window.showToast('Saved to selected folder!', 'success');
       return;
     } catch (err) {
       if (err.name === 'AbortError') return; // User cancelled dialog
@@ -421,7 +479,7 @@ window.openFileNative = function(fileId) {
 openDownloadsFolderBtn?.addEventListener('click', () => {
   if (window.sendHelperMessage) {
     window.sendHelperMessage({ type: 'open-downloads-folder' });
-    window.showToast('Opening Downloads Folder...', 'info');
+    window.showToast('Opening Downloads folder...', 'info');
   } else {
     window.showToast('PC Helper not connected.', 'warning');
   }
@@ -429,7 +487,6 @@ openDownloadsFolderBtn?.addEventListener('click', () => {
 
 // PC Helper notification of saved file
 window.onHelperFileSaved = function(msg) {
-  // Find matching file and update savedPath
   const target = receivedFiles.find((f) => f.name === msg.name || f.size === msg.size);
   if (target) {
     target.savedPath = msg.path;

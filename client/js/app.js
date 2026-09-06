@@ -32,31 +32,43 @@ const copyRoomBtn = document.getElementById('copyRoomBtn');
 const qrBtn = document.getElementById('qrBtn');
 const qrModal = document.getElementById('qrModal');
 const qrCloseBtn = document.getElementById('qrCloseBtn');
-const qrCanvas = document.getElementById('qrCanvas');
 
-// Toast Notification System
+// Production SVG Toast Notification System (Zero Emojis)
 function showToast(message, type = 'info') {
   const container = document.getElementById('toast-container');
   if (!container) return;
 
   const toast = document.createElement('div');
-  toast.className = 'toast';
+  toast.className = `toast toast-${type}`;
   
-  let icon = 'ℹ️';
-  if (type === 'success') icon = '✅';
-  if (type === 'error') icon = '❌';
-  if (type === 'warning') icon = '⚠️';
-  if (type === 'file') icon = '📁';
-  if (type === 'control') icon = '🎮';
+  let iconSvg = '';
+  if (type === 'success') {
+    iconSvg = '<svg class="toast-svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
+  } else if (type === 'error') {
+    iconSvg = '<svg class="toast-svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+  } else if (type === 'warning') {
+    iconSvg = '<svg class="toast-svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+  } else if (type === 'file') {
+    iconSvg = '<svg class="toast-svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+  } else if (type === 'control') {
+    iconSvg = '<svg class="toast-svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3" width="12" height="18" rx="6"/><line x1="12" y1="7" x2="12" y2="11"/></svg>';
+  } else {
+    // info
+    iconSvg = '<svg class="toast-svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+  }
 
-  toast.innerHTML = `<span>${icon}</span> <span>${message}</span>`;
+  // Clean any remaining emoji characters in message
+  const cleanMsg = message.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').trim();
+
+  toast.innerHTML = `<span class="toast-icon-wrap">${iconSvg}</span><span class="toast-msg">${cleanMsg}</span>`;
   container.appendChild(toast);
 
   setTimeout(() => {
     toast.style.opacity = '0';
-    toast.style.transition = 'opacity 0.3s ease';
-    setTimeout(() => toast.remove(), 300);
-  }, 3500);
+    toast.style.transform = 'translateY(6px)';
+    toast.style.transition = 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)';
+    setTimeout(() => toast.remove(), 250);
+  }, 3200);
 }
 
 window.showToast = showToast;
@@ -83,28 +95,34 @@ function initTabs() {
 
 // Status Badges Update
 function updateStatusBadges() {
-  if (window.appState.signalingConnected) {
-    badgeSignaling.className = 'status-badge connected';
-    badgeSignaling.innerHTML = '<span class="status-dot"></span> <span class="badge-text">Server: Online</span>';
-  } else {
-    badgeSignaling.className = 'status-badge disconnected';
-    badgeSignaling.innerHTML = '<span class="status-dot"></span> <span class="badge-text">Server: Offline</span>';
+  if (badgeSignaling) {
+    if (window.appState.signalingConnected) {
+      badgeSignaling.className = 'status-badge connected';
+      badgeSignaling.innerHTML = '<span class="status-dot"></span> <span class="badge-text">Server: Online</span>';
+    } else {
+      badgeSignaling.className = 'status-badge disconnected';
+      badgeSignaling.innerHTML = '<span class="status-dot"></span> <span class="badge-text">Server: Offline</span>';
+    }
   }
 
-  if (window.appState.peerConnected) {
-    badgeP2P.className = 'status-badge connected';
-    badgeP2P.innerHTML = '<span class="status-dot"></span> <span class="badge-text">P2P: Connected</span>';
-  } else {
-    badgeP2P.className = 'status-badge disconnected';
-    badgeP2P.innerHTML = '<span class="status-dot"></span> <span class="badge-text">P2P: Waiting</span>';
+  if (badgeP2P) {
+    if (window.appState.peerConnected) {
+      badgeP2P.className = 'status-badge connected';
+      badgeP2P.innerHTML = '<span class="status-dot"></span> <span class="badge-text">P2P: Connected</span>';
+    } else {
+      badgeP2P.className = 'status-badge disconnected';
+      badgeP2P.innerHTML = '<span class="status-dot"></span> <span class="badge-text">P2P: Waiting</span>';
+    }
   }
 
-  if (window.appState.helperConnected) {
-    badgeHelper.className = 'status-badge connected';
-    badgeHelper.innerHTML = '<span class="status-dot"></span> <span class="badge-text">Helper: Ready</span>';
-  } else {
-    badgeHelper.className = 'status-badge';
-    badgeHelper.innerHTML = '<span class="status-dot"></span> <span class="badge-text">Helper: Inactive</span>';
+  if (badgeHelper) {
+    if (window.appState.helperConnected) {
+      badgeHelper.className = 'status-badge connected';
+      badgeHelper.innerHTML = '<span class="status-dot"></span> <span class="badge-text">Helper: Ready</span>';
+    } else {
+      badgeHelper.className = 'status-badge';
+      badgeHelper.innerHTML = '<span class="status-dot"></span> <span class="badge-text">Helper: Inactive</span>';
+    }
   }
 }
 
@@ -119,7 +137,7 @@ function setRoomCode(code) {
   }
 }
 
-copyRoomBtn.addEventListener('click', () => {
+copyRoomBtn?.addEventListener('click', () => {
   if (window.appState.roomCode) {
     navigator.clipboard.writeText(window.appState.roomCode).then(() => {
       showToast('Room code copied to clipboard!', 'success');
@@ -127,21 +145,20 @@ copyRoomBtn.addEventListener('click', () => {
   }
 });
 
-// QR Code Generator (SVG-based or Canvas without external library)
-qrBtn.addEventListener('click', () => {
+// QR Code Generator Modal
+qrBtn?.addEventListener('click', () => {
   if (!window.appState.roomCode) return;
   const joinUrl = `${window.location.origin}/?room=${window.appState.roomCode}`;
   
-  // Use quick Google Chart QR code API image for crystal clarity
   const qrImg = document.getElementById('qrImg');
   if (qrImg) {
-    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`;
+    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(joinUrl)}`;
   }
-  qrModal.classList.add('active');
+  qrModal?.classList.add('active');
 });
 
-qrCloseBtn.addEventListener('click', () => {
-  qrModal.classList.remove('active');
+qrCloseBtn?.addEventListener('click', () => {
+  qrModal?.classList.remove('active');
 });
 
 // Privacy Toggles Coordinator
@@ -152,9 +169,9 @@ function initPrivacyToggles() {
 
   function sync() {
     window.appState.localPermissions = {
-      screenShare: toggleScreen.checked,
-      remoteControl: toggleControl.checked,
-      fileTransfer: toggleFiles.checked
+      screenShare: toggleScreen ? toggleScreen.checked : true,
+      remoteControl: toggleControl ? toggleControl.checked : true,
+      fileTransfer: toggleFiles ? toggleFiles.checked : true
     };
     if (window.sendControlMessage) {
       window.sendControlMessage({
@@ -164,9 +181,9 @@ function initPrivacyToggles() {
     }
   }
 
-  toggleScreen.addEventListener('change', sync);
-  toggleControl.addEventListener('change', sync);
-  toggleFiles.addEventListener('change', sync);
+  toggleScreen?.addEventListener('change', sync);
+  toggleControl?.addEventListener('change', sync);
+  toggleFiles?.addEventListener('change', sync);
 }
 
 // Auto Join from URL params (?room=xxx)
@@ -176,7 +193,6 @@ function checkUrlRoomParam() {
   if (room) {
     const input = document.getElementById('joinRoomInput');
     if (input) input.value = room;
-    // Auto switch to pairing tab if needed
   }
 }
 

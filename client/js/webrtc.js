@@ -158,7 +158,7 @@ function setupPeerConnection() {
       remoteVideo.srcObject = event.streams[0];
       if (placeholder) placeholder.style.display = 'none';
       if (screenWrapper) screenWrapper.classList.add('streaming');
-      window.showToast('📺 Receiving live screen stream', 'info');
+      window.showToast('Receiving live screen stream', 'info');
     }
   };
 

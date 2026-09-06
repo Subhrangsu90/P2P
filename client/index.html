@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
-  <title>RemoteLink — P2P Remote Control & File Explorer Hub</title>
+  <title>RemoteLink — Production P2P Control & File Hub</title>
   
   <!-- Modern Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
   
-  <link rel="stylesheet" href="css/style.css?v=3.0">
+  <link rel="stylesheet" href="css/style.css?v=4.0">
 </head>
 <body>
 
@@ -19,10 +19,15 @@
     <!-- Top Header & Live Status -->
     <header>
       <div class="brand">
-        <div class="brand-icon">⚡</div>
+        <div class="brand-icon" aria-label="RemoteLink Logo">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+          </svg>
+        </div>
         <div class="brand-text">
           <h1>RemoteLink</h1>
-          <p>P2P Control & File Hub</p>
+          <p>P2P Control &amp; File Hub</p>
         </div>
       </div>
 
@@ -42,19 +47,46 @@
     <!-- Navigation Tabs -->
     <nav class="nav-tabs">
       <button class="nav-tab-btn active" data-tab="tab-overview">
-        <span class="tab-icon">📡</span> <span class="tab-label">Pair</span>
+        <svg class="tab-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/>
+          <path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/>
+          <circle cx="12" cy="12" r="2"/>
+          <path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/>
+          <path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1"/>
+        </svg>
+        <span class="tab-label">Pair</span>
       </button>
+
       <button class="nav-tab-btn" data-tab="tab-screen">
-        <span class="tab-icon">🖥️</span> <span class="tab-label">Screen</span>
+        <svg class="tab-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+          <line x1="8" y1="21" x2="16" y2="21"/>
+          <line x1="12" y1="17" x2="12" y2="21"/>
+        </svg>
+        <span class="tab-label">Screen</span>
       </button>
+
       <button class="nav-tab-btn" data-tab="tab-control">
-        <span class="tab-icon">🎮</span> <span class="tab-label">Control</span>
+        <svg class="tab-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="5" y="2" width="14" height="20" rx="4"/>
+          <line x1="12" y1="18" x2="12.01" y2="18"/>
+          <line x1="8" y1="6" x2="16" y2="6"/>
+        </svg>
+        <span class="tab-label">Control</span>
       </button>
+
       <button class="nav-tab-btn" data-tab="tab-files">
-        <span class="tab-icon">📁</span> <span class="tab-label">Files</span>
+        <svg class="tab-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+        </svg>
+        <span class="tab-label">Files</span>
       </button>
+
       <button class="nav-tab-btn" data-tab="tab-privacy">
-        <span class="tab-icon">🛡️</span> <span class="tab-label">Privacy</span>
+        <svg class="tab-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        <span class="tab-label">Privacy</span>
       </button>
     </nav>
 
@@ -66,21 +98,48 @@
         
         <!-- Create Room Box -->
         <div class="pairing-box">
-          <h3>Create New Session</h3>
+          <div class="pairing-box-header">
+            <div class="pairing-box-icon">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="16"/>
+                <line x1="8" y1="12" x2="16" y2="12"/>
+              </svg>
+            </div>
+            <h3>Create Session</h3>
+          </div>
           <p>Generate a secure room code to pair this device with your phone or PC over direct WebRTC.</p>
           <button id="createRoomBtn" class="btn btn-primary">
-            ✨ Generate Room Code
+            <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="7.5" cy="15.5" r="5.5"/>
+              <path d="m21 2-9.6 9.6"/>
+              <path d="m15.5 7.5 3 3L22 7l-3.5-3.5"/>
+            </svg>
+            <span>Generate Room Code</span>
           </button>
         </div>
 
         <!-- Join Room Box -->
         <div class="pairing-box">
-          <h3>Join Existing Session</h3>
-          <p>Enter the 6-character room code displayed on your other device.</p>
+          <div class="pairing-box-header">
+            <div class="pairing-box-icon">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+                <polyline points="10 17 15 12 10 7"/>
+                <line x1="15" y1="12" x2="3" y2="12"/>
+              </svg>
+            </div>
+            <h3>Join Session</h3>
+          </div>
+          <p>Enter the 6-character room code displayed on your other device to connect instantly.</p>
           <div class="input-row">
-            <input type="text" id="joinRoomInput" placeholder="e.g. a1b2c3" maxlength="10" />
+            <input type="text" id="joinRoomInput" placeholder="e.g. a1b2c3" maxlength="10" autocomplete="off" spellcheck="false" />
             <button id="joinRoomBtn" class="btn btn-secondary">
-              🔗 Join
+              <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+              </svg>
+              <span>Connect</span>
             </button>
           </div>
         </div>
@@ -91,17 +150,36 @@
       <div id="activeRoomCard" class="card" style="display: none;">
         <div class="card-header">
           <div class="card-title">
-            <span class="card-title-icon">🔑</span>
+            <span class="card-title-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 2l-2 2m-1.5 1.5L14 9l-1.5-1.5L9 11l6 6 3.5-3.5-1.5-1.5 3.5-3.5 2-2z"/>
+                <circle cx="7.5" cy="16.5" r="4.5"/>
+              </svg>
+            </span>
             <span>Active Room Code</span>
           </div>
-          <div style="display: flex; gap: 8px;">
-            <button id="copyRoomBtn" class="btn btn-secondary btn-sm">📋 Copy Code</button>
-            <button id="qrBtn" class="btn btn-primary btn-sm">📱 QR Code</button>
+          <div class="card-actions-group">
+            <button id="copyRoomBtn" class="btn btn-secondary btn-sm">
+              <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+              <span>Copy Code</span>
+            </button>
+            <button id="qrBtn" class="btn btn-primary btn-sm">
+              <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="7"/>
+                <rect x="14" y="3" width="7" height="7"/>
+                <rect x="14" y="14" width="7" height="7"/>
+                <rect x="3" y="14" width="7" height="7"/>
+              </svg>
+              <span>QR Code</span>
+            </button>
           </div>
         </div>
         <div class="room-display">
           <span id="activeRoomCode" class="room-code-text">------</span>
-          <span style="font-size: 0.8rem; color: var(--text-muted);">Share this with your second device</span>
+          <span class="room-display-hint">Share this code with your second device</span>
         </div>
       </div>
     </section>
@@ -113,22 +191,63 @@
       <div class="card">
         <div class="card-header">
           <div class="card-title">
-            <span class="card-title-icon">🖥️</span>
+            <span class="card-title-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                <line x1="8" y1="21" x2="16" y2="21"/>
+                <line x1="12" y1="17" x2="12" y2="21"/>
+              </svg>
+            </span>
             <span>Live Display Stream</span>
           </div>
           <div class="screen-toolbar">
-            <button id="startShareBtn" class="btn btn-primary btn-sm">📺 Share My Screen</button>
-            <button id="stopShareBtn" class="btn btn-rose btn-sm" style="display: none;">⏹️ Stop Sharing</button>
-            <button id="toggleFullscreenBtn" class="btn btn-secondary btn-sm">⛶ Fullscreen</button>
-            <button id="pipBtn" class="btn btn-secondary btn-sm">🔲 Picture-in-Picture</button>
+            <button id="startShareBtn" class="btn btn-primary btn-sm">
+              <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2"/>
+                <line x1="8" y1="21" x2="16" y2="21"/>
+                <line x1="12" y1="17" x2="12" y2="21"/>
+                <polyline points="16 10 12 6 8 10"/>
+                <line x1="12" y1="6" x2="12" y2="14"/>
+              </svg>
+              <span>Share My Screen</span>
+            </button>
+            <button id="stopShareBtn" class="btn btn-danger btn-sm" style="display: none;">
+              <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="4" y="4" width="16" height="16" rx="2"/>
+              </svg>
+              <span>Stop Sharing</span>
+            </button>
+            <button id="toggleFullscreenBtn" class="btn btn-secondary btn-sm">
+              <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 3 21 3 21 9"/>
+                <polyline points="9 21 3 21 3 15"/>
+                <line x1="21" y1="3" x2="14" y2="10"/>
+                <line x1="3" y1="21" x2="10" y2="14"/>
+              </svg>
+              <span>Fullscreen</span>
+            </button>
+            <button id="pipBtn" class="btn btn-secondary btn-sm">
+              <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="4" width="20" height="16" rx="2"/>
+                <rect x="12" y="10" width="8" height="7" rx="1"/>
+              </svg>
+              <span>Picture-in-Picture</span>
+            </button>
           </div>
         </div>
 
         <div id="screenWrapper" class="screen-wrapper">
           <div id="screenPlaceholder" class="screen-placeholder">
-            <span class="screen-placeholder-icon">📺</span>
-            <h3>No Screen Stream Active</h3>
-            <p>Connect to a peer and click <b>Share My Screen</b> on your PC, or stream from mobile.</p>
+            <div class="screen-placeholder-icon">
+              <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                <line x1="8" y1="21" x2="16" y2="21"/>
+                <line x1="12" y1="17" x2="12" y2="21"/>
+                <line x1="2" y1="9" x2="22" y2="9"/>
+              </svg>
+            </div>
+            <h3>No Active Stream</h3>
+            <p>Connect to a peer and click <b>Share My Screen</b> on your PC, or stream from your mobile browser.</p>
           </div>
           <video id="remoteVideo" autoplay playsinline></video>
         </div>
@@ -142,37 +261,75 @@
       <div class="card">
         <div class="card-header">
           <div class="card-title">
-            <span class="card-title-icon">🖱️</span>
-            <span>Virtual Touchpad & Gestures</span>
+            <span class="card-title-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="6" y="3" width="12" height="18" rx="6"/>
+                <line x1="12" y1="7" x2="12" y2="11"/>
+              </svg>
+            </span>
+            <span>Virtual Touchpad &amp; Input</span>
           </div>
-          <span style="font-size: 0.75rem; color: var(--text-muted);">1-Finger Move • Tap Click • 2-Finger Scroll</span>
+          <span class="section-badge">1-Finger Move • Tap Click • 2-Finger Scroll</span>
         </div>
 
         <!-- Touch Surface -->
         <div id="touchpad" class="touchpad-surface">
-          <span style="font-size: 2rem; opacity: 0.35;">🖐️</span>
-          <span>Slide finger to move mouse cursor</span>
-          <span style="font-size: 0.75rem; color: var(--text-dim);">Tap for left click • Two-finger tap for right click</span>
+          <div class="touchpad-indicator">
+            <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/>
+              <path d="m13 13 6 6"/>
+            </svg>
+          </div>
+          <span class="touchpad-title">Slide finger to move remote cursor</span>
+          <span class="touchpad-hint">Single tap for left click • Two-finger tap for right click</span>
         </div>
 
         <!-- Mouse Buttons -->
         <div class="mouse-click-bar">
-          <button id="btnMouseLeft" class="mouse-click-btn">🖱️ Left Click</button>
-          <button id="btnMouseRight" class="mouse-click-btn">🖱️ Right Click</button>
+          <button id="btnMouseLeft" class="mouse-click-btn">
+            <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="6" y="3" width="12" height="18" rx="6"/>
+              <path d="M6 9h6"/>
+              <path d="M12 3v6"/>
+            </svg>
+            <span>Left Click</span>
+          </button>
+          <button id="btnMouseRight" class="mouse-click-btn">
+            <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="6" y="3" width="12" height="18" rx="6"/>
+              <path d="M12 9h6"/>
+              <path d="M12 3v6"/>
+            </svg>
+            <span>Right Click</span>
+          </button>
         </div>
 
         <!-- Quick Hotkeys Bar -->
-        <div class="card-header" style="margin-top: 8px;">
+        <div class="card-header" style="margin-top: 14px;">
           <div class="card-title" style="font-size: 0.95rem;">
-            <span>⌨️ Quick Windows Shortcuts</span>
+            <span class="card-title-icon">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="4" width="20" height="16" rx="2"/>
+                <line x1="6" y1="8" x2="6" y2="8"/>
+                <line x1="10" y1="8" x2="10" y2="8"/>
+                <line x1="14" y1="8" x2="14" y2="8"/>
+                <line x1="18" y1="8" x2="18" y2="8"/>
+                <line x1="6" y1="12" x2="6" y2="12"/>
+                <line x1="10" y1="12" x2="10" y2="12"/>
+                <line x1="14" y1="12" x2="14" y2="12"/>
+                <line x1="18" y1="12" x2="18" y2="12"/>
+                <line x1="7" y1="16" x2="17" y2="16"/>
+              </svg>
+            </span>
+            <span>Remote System Shortcuts</span>
           </div>
         </div>
         <div class="hotkeys-grid">
           <button class="hotkey-btn" data-key="Win+D">Win + D (Desktop)</button>
           <button class="hotkey-btn" data-key="Alt+Tab">Alt + Tab</button>
           <button class="hotkey-btn" data-key="Ctrl+Shift+Esc">Task Manager</button>
-          <button class="hotkey-btn" data-key="Enter">Enter ↵</button>
-          <button class="hotkey-btn" data-key="Backspace">⌫ Backspace</button>
+          <button class="hotkey-btn" data-key="Enter">Enter</button>
+          <button class="hotkey-btn" data-key="Backspace">Backspace</button>
           <button class="hotkey-btn" data-key="Escape">Esc</button>
           <button class="hotkey-btn" data-key="Space">Space</button>
           <button class="hotkey-btn" data-key="F5">F5 Refresh</button>
@@ -180,15 +337,26 @@
         </div>
 
         <!-- Direct Keystroke / Text Injection -->
-        <div class="card-header" style="margin-top: 8px;">
+        <div class="card-header" style="margin-top: 14px;">
           <div class="card-title" style="font-size: 0.95rem;">
-            <span>💬 Type Text onto Remote PC</span>
+            <span class="card-title-icon">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="4 7 4 4 20 4 20 7"/>
+                <line x1="9" y1="20" x2="15" y2="20"/>
+                <line x1="12" y1="4" x2="12" y2="20"/>
+              </svg>
+            </span>
+            <span>Send Text to Remote PC</span>
           </div>
         </div>
         <div class="input-row">
-          <input type="text" id="keyboardInput" placeholder="Type text or paste URL to send directly..." />
+          <input type="text" id="keyboardInput" placeholder="Type text or paste URL to inject directly..." autocomplete="off" />
           <button id="btnSendText" class="btn btn-primary">
-            📤 Send
+            <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+            <span>Send</span>
           </button>
         </div>
       </div>
@@ -203,16 +371,28 @@
       <div class="card">
         <div class="card-header">
           <div class="card-title">
-            <span class="card-title-icon">📤</span>
+            <span class="card-title-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </span>
             <span>Send Files to Peer</span>
           </div>
-          <span style="font-size: 0.75rem; color: var(--text-muted);">Direct P2P • Chunked transfer • No size limit</span>
+          <span class="section-badge">Direct P2P • Chunked Transfer • Unlimited Size</span>
         </div>
 
         <input type="file" id="filePicker" multiple style="display: none;" />
         <div id="dropzone" class="dropzone">
-          <span class="dropzone-icon">☁️</span>
-          <span class="dropzone-text">Click or drag & drop files here to send</span>
+          <div class="dropzone-icon">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+          <span class="dropzone-text">Click or drag &amp; drop files here to send</span>
           <span class="dropzone-hint">Supports images, documents, videos, archives, and code</span>
         </div>
 
@@ -225,7 +405,7 @@
           <div class="progress-track">
             <div id="progressFill" class="progress-fill"></div>
           </div>
-          <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-dim);">
+          <div class="progress-sub">
             <span>Direct WebRTC DataChannel</span>
             <span id="progressSpeed">0 KB/s</span>
           </div>
@@ -236,12 +416,21 @@
       <div class="card">
         <div class="card-header files-explorer-header">
           <div class="card-title">
-            <span class="card-title-icon">📥</span>
+            <span class="card-title-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+            </span>
             <span>Received Files Hub</span>
           </div>
           <div class="explorer-controls">
-            <button id="openDownloadsFolderBtn" class="btn btn-secondary btn-sm" title="Open Downloads folder in Windows Explorer">
-              📂 Open Downloads Folder
+            <button id="openDownloadsFolderBtn" class="btn btn-secondary btn-sm" title="Open Downloads folder on PC">
+              <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+              </svg>
+              <span>Downloads Folder</span>
             </button>
           </div>
         </div>
@@ -249,8 +438,12 @@
         <!-- Files List View -->
         <div id="filesList" class="files-list">
           <div class="empty-explorer">
-            <span class="empty-explorer-icon">📂</span>
-            <span>No files received yet. Drag & drop above to transfer peer-to-peer.</span>
+            <div class="empty-explorer-icon">
+              <svg viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+              </svg>
+            </div>
+            <span>No files received yet. Drag &amp; drop files above to transfer.</span>
           </div>
         </div>
       </div>
@@ -264,16 +457,20 @@
       <div class="card">
         <div class="card-header">
           <div class="card-title">
-            <span class="card-title-icon">🛡️</span>
-            <span>Privacy & Feature Permissions</span>
+            <span class="card-title-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+            </span>
+            <span>Privacy &amp; Feature Permissions</span>
           </div>
-          <span style="font-size: 0.75rem; color: var(--emerald);">Real-time Sync</span>
+          <span class="section-badge status-badge-subtle">Real-time Policy</span>
         </div>
 
         <div class="toggle-row">
           <div class="toggle-details">
             <span class="toggle-title">Screen Sharing Access</span>
-            <span class="toggle-desc">Permit outgoing video capture & streaming to the remote peer</span>
+            <span class="toggle-desc">Permit outgoing video capture &amp; streaming to the remote peer</span>
           </div>
           <label class="switch">
             <input type="checkbox" id="toggleScreen" checked />
@@ -283,7 +480,7 @@
 
         <div class="toggle-row">
           <div class="toggle-details">
-            <span class="toggle-title">Remote Control & Input Simulation</span>
+            <span class="toggle-title">Remote Control &amp; Input Simulation</span>
             <span class="toggle-desc">Allow remote device to control mouse movements, clicks, and keystrokes</span>
           </div>
           <label class="switch">
@@ -309,14 +506,27 @@
 
   <!-- QR Code Modal -->
   <div id="qrModal" class="modal-overlay">
-    <div class="modal-card" style="max-width: 360px; text-align: center;">
+    <div class="modal-card" style="max-width: 380px; text-align: center;">
       <div class="modal-header">
-        <h3 style="font-size: 1rem;">📱 Scan to Connect Phone</h3>
-        <button id="qrCloseBtn" class="btn btn-secondary btn-sm">✕</button>
+        <div class="modal-title-wrap">
+          <svg class="modal-title-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+            <line x1="12" y1="18" x2="12.01" y2="18"/>
+          </svg>
+          <h3>Scan to Connect Phone</h3>
+        </div>
+        <button id="qrCloseBtn" class="btn-icon" aria-label="Close">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
       </div>
       <div class="modal-body">
-        <img id="qrImg" alt="QR Code" style="width: 200px; height: 200px; border-radius: 12px; background: #fff; padding: 8px;" />
-        <p style="font-size: 0.8rem; color: var(--text-muted);">
+        <div class="qr-preview-wrapper">
+          <img id="qrImg" alt="QR Code" />
+        </div>
+        <p class="modal-subtitle">
           Scan with your phone camera or QR reader to join this room instantly.
         </p>
       </div>
@@ -327,8 +537,19 @@
   <div id="previewModal" class="modal-overlay">
     <div class="modal-card">
       <div class="modal-header">
-        <h3 id="previewModalTitle" style="font-size: 1rem;">File Preview</h3>
-        <button id="previewCloseBtn" class="btn btn-secondary btn-sm">✕</button>
+        <div class="modal-title-wrap">
+          <svg class="modal-title-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+          <h3 id="previewModalTitle">File Preview</h3>
+        </div>
+        <button id="previewCloseBtn" class="btn-icon" aria-label="Close">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
       </div>
       <div id="previewModalBody" class="modal-body"></div>
     </div>

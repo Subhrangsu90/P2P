@@ -14,7 +14,7 @@ function connectLocalHelper() {
     helperWs.onopen = () => {
       window.appState.helperConnected = true;
       window.updateStatusBadges();
-      window.showToast('🖥️ Connected to local PC Helper', 'success');
+      window.showToast('Connected to local PC Helper', 'success');
       console.log('[Helper] Connected to local PC Helper on port 8081.');
     };
 
@@ -69,7 +69,7 @@ function handleIncomingControlCommand(cmd) {
   if (helperWs && helperWs.readyState === WebSocket.OPEN) {
     helperWs.send(JSON.stringify(cmd));
   } else {
-    window.showToast(`🎮 Input received (${cmd.type}), but PC Helper is inactive`, 'control');
+    window.showToast(`Input received (${cmd.type}), but PC Helper is inactive`, 'control');
   }
 }
 
@@ -253,7 +253,7 @@ function initScreenShare() {
 
       startBtn.style.display = 'none';
       stopBtn.style.display = 'inline-flex';
-      window.showToast('📺 Sharing your screen to peer', 'success');
+      window.showToast('Sharing screen to peer', 'success');
 
       // Create new renegotiation offer
       const offer = await pc.createOffer();
