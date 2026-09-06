@@ -151,3 +151,32 @@ To enable real OS-level mouse cursor control and keystrokes on Windows:
 - **Direct P2P**: Video streams and files travel directly between your phone and PC over WebRTC. Nothing is stored on any cloud server.
 - **Local Loopback Helper**: `pc-helper.js` listens only on `127.0.0.1:8081` (localhost only), preventing unauthorized network access from outside your PC.
 - **Single-Use Rooms**: Room codes are random and allow a maximum of 2 devices per session.
+
+---
+
+## 🐙 Git Repository Setup
+
+If you want to track changes or push this project to GitHub / GitLab:
+
+1. **Check status**:
+   ```bash
+   git status
+   ```
+2. **Stage files**:
+   ```bash
+   git add .
+   ```
+3. **Commit changes**:
+   ```bash
+   git commit -m "feat: your commit message"
+   ```
+4. **Push to Remote (e.g. GitHub)**:
+   ```bash
+   # Add your remote repository URL
+   git remote add origin https://github.com/<your-username>/<your-repo-name>.git
+
+   # Set branch and push
+   git branch -M main
+   git push -u origin main
+   ```
+
